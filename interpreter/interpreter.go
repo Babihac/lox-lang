@@ -32,6 +32,16 @@ func (i *Interpreter) Interpret(statements []stm.Statement) {
 }
 
 func (i *Interpreter) InterpretRepl(statements []stm.Statement) {
+	defer i.afterPanic()
+
+	for _, stmt := range statements {
+		if exprStmt, ok := stmt.(stm.ExpressionStmt); ok {
+			value := i.evaluate(exprStmt.Expression)
+			fmt.Println(value)
+		} else {
+			i.execute(stmt)
+		}
+	}
 
 }
 
@@ -65,8 +75,7 @@ func (i *Interpreter) VisitBlockStatement(stmt stm.BlockStmt) any {
 
 // VisitExprStatement implements stm.Visitor.
 func (i *Interpreter) VisitExprStatement(stmt stm.ExpressionStmt) any {
-	value := i.evaluate(stmt.Expression)
-	fmt.Println(value)
+	i.evaluate(stmt.Expression)
 	return nil
 }
 
@@ -74,6 +83,25 @@ func (i *Interpreter) VisitExprStatement(stmt stm.ExpressionStmt) any {
 func (i *Interpreter) VisitPrintStatement(stmt stm.PrintStmt) any {
 	value := i.evaluate(stmt.Expression)
 	fmt.Println(i.stringify(value))
+	return nil
+}
+
+func (i *Interpreter) VisitIfStatement(stmt stm.IfStmt) any {
+	if i.isTruthy(i.evaluate(stmt.Condition)) {
+		i.execute(stmt.ThenBranch)
+	} else if stmt.ElseBranch != nil {
+		i.execute(stmt.ElseBranch)
+	}
+	return nil
+}
+
+func (i *Interpreter) VisitWhileStatement(stmt stm.WhileStmt) any {
+	for {
+		if !i.isTruthy(i.evaluate(stmt.Condition)) {
+			break
+		}
+		i.execute(stmt.Body)
+	}
 	return nil
 }
 
@@ -170,6 +198,22 @@ func (i *Interpreter) VisitGroupingExpr(expr expressions.Grouping) any {
 // VisitLiteralExpr implements expressions.Visitor.
 func (i *Interpreter) VisitLiteralExpr(expr expressions.Literal) any {
 	return expr.Value
+}
+
+func (i *Interpreter) VisitLogicalExpr(expr expressions.Logical) any {
+	left := i.evaluate(expr.Left)
+
+	if expr.Operator.TokenType == tokens.OR {
+		if i.isTruthy(left) {
+			return left
+		}
+	} else {
+		if !i.isTruthy(left) {
+			return left
+		}
+	}
+
+	return i.evaluate(expr.Right)
 }
 
 // VisitTernaryExpr implements expressions.Visitor.

@@ -13,6 +13,7 @@ type Visitor[T any] interface {
 	VisitTernaryExpr(expr Ternary) T
 	VisitVariableExpr(expr Variable) T
 	VisitAssignExpr(expr Assign) T
+	VisitLogicalExpr(expr Logical) T
 }
 
 type Expression interface {
@@ -79,6 +80,24 @@ func NewLiteral(value any) *Literal {
 
 func (l Literal) Accept(visitor Visitor[any]) any {
 	return visitor.VisitLiteralExpr(l)
+}
+
+type Logical struct {
+	Left     Expression
+	Operator tokens.Token
+	Right    Expression
+}
+
+func NewLogical(left Expression, operator tokens.Token, right Expression) *Logical {
+	return &Logical{
+		Left:     left,
+		Operator: operator,
+		Right:    right,
+	}
+}
+
+func (l Logical) Accept(visitor Visitor[any]) any {
+	return visitor.VisitLogicalExpr(l)
 }
 
 type Unary struct {

@@ -93,6 +93,18 @@ func (p *Parser) varDeclaration() stm.Statement {
 }
 
 func (p *Parser) statement() stm.Statement {
+	if p.match(tokens.FOR) {
+		return p.forStatement()
+	}
+
+	if p.match(tokens.IF) {
+		return p.ifStatement()
+	}
+
+	if p.match(tokens.WHILE) {
+		return p.whileStatement()
+	}
+
 	if p.match(tokens.PRINT) {
 		return p.printStatement()
 	}
@@ -100,6 +112,77 @@ func (p *Parser) statement() stm.Statement {
 		return stm.NewBlock(p.block())
 	}
 	return p.expressionStatement()
+}
+
+func (p *Parser) forStatement() stm.Statement {
+	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'for'.")
+
+	var initializer stm.Statement
+	var condition expressions.Expression = nil
+	var increment expressions.Expression = nil
+
+	if p.match(tokens.SEMICOLON) {
+		initializer = nil
+	} else if p.match(tokens.VAR) {
+		initializer = p.varDeclaration()
+	} else {
+		initializer = p.expressionStatement()
+	}
+
+	if !p.check(tokens.SEMICOLON) {
+		condition = p.expression()
+	}
+
+	p.consume(tokens.SEMICOLON, "Expect ';' after loop condition.")
+
+	if !p.check(tokens.RIGHT_PAREN) {
+		increment = p.expression()
+	}
+
+	p.consume(tokens.RIGHT_PAREN, "Expect ')' after for clauses.")
+
+	body := p.statement()
+
+	if increment != nil {
+		body = stm.NewBlock([]stm.Statement{body, stm.NewExpression(increment)})
+	}
+
+	if condition == nil {
+		condition = expressions.NewLiteral(true)
+	}
+
+	body = stm.NewWhile(condition, body)
+
+	if initializer != nil {
+		body = stm.NewBlock([]stm.Statement{initializer, body})
+	}
+
+	return body
+
+}
+
+func (p *Parser) whileStatement() stm.WhileStmt {
+	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'while'.")
+	condition := p.expression()
+	p.consume(tokens.RIGHT_PAREN, "Expect ')' after condition.")
+	body := p.statement()
+
+	return *stm.NewWhile(condition, body)
+}
+
+func (p *Parser) ifStatement() stm.IfStmt {
+	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'if'.")
+	condition := p.expression()
+	p.consume(tokens.RIGHT_PAREN, "Expect ')' after if condition.")
+
+	thenBranch := p.statement()
+	var elseBranch stm.Statement = nil
+
+	if p.match(tokens.ELSE) {
+		elseBranch = p.statement()
+	}
+
+	return *stm.NewIf(condition, thenBranch, elseBranch)
 }
 
 func (p *Parser) printStatement() stm.PrintStmt {
@@ -155,7 +238,7 @@ func (p *Parser) assignemt() expressions.Expression {
 }
 
 func (p *Parser) ternary() expressions.Expression {
-	expression := p.equality()
+	expression := p.or()
 
 	for {
 		if !p.match(tokens.QUESTION_MARK) {
@@ -175,6 +258,38 @@ func (p *Parser) ternary() expressions.Expression {
 	}
 
 	return expression
+}
+
+func (p *Parser) or() expressions.Expression {
+	expr := p.and()
+
+	for {
+		if !p.match(tokens.OR) {
+			break
+		}
+		operator := p.previous()
+		right := p.and()
+
+		expr = expressions.NewLogical(expr, operator, right)
+	}
+	return expr
+}
+
+func (p *Parser) and() expressions.Expression {
+	expr := p.equality()
+
+	for {
+		if !p.match(tokens.AND) {
+			break
+		}
+
+		operator := p.previous()
+		right := p.equality()
+
+		expr = expressions.NewLogical(expr, operator, right)
+	}
+
+	return expr
 }
 
 func (p *Parser) equality() expressions.Expression {

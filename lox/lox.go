@@ -59,7 +59,7 @@ func (l *Lox) RunPrompt() {
 		}
 
 		source := scanner.Text()
-		l.run(source)
+		l.runRepl(source)
 		l.HadError = false
 		l.HadRuntimeError = false
 
@@ -90,4 +90,20 @@ func (l *Lox) run(source string) {
 
 	l.interpreter.Interpret(stmts)
 
+}
+
+func (l *Lox) runRepl(source string) {
+	l.scanner.LoadSource(source)
+
+	tokens := l.scanner.ScanTokens()
+
+	l.parser.LoadTokens(tokens)
+
+	stmts := l.parser.Parse()
+
+	if l.HadError {
+		return
+	}
+
+	l.interpreter.InterpretRepl(stmts)
 }

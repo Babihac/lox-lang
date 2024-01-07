@@ -49,7 +49,7 @@ func (e *Environment) Assign(name tokens.Token, value any) {
 	}
 
 	if e.Enclosing != nil {
-		e.Assign(name, value)
+		e.Enclosing.Assign(name, value)
 		return
 	}
 

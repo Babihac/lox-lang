@@ -11,6 +11,8 @@ type Visitor[T any] interface {
 	VisitVarStatement(stmt VarStmt) T
 	VisitErrorStatement(stmt ErrorStmt) T
 	VisitBlockStatement(stmt BlockStmt) T
+	VisitIfStatement(stmt IfStmt) T
+	VisitWhileStatement(stmt WhileStmt) T
 }
 
 type Statement interface {
@@ -31,6 +33,24 @@ func (e ExpressionStmt) Accept(visitor Visitor[any]) any {
 	return visitor.VisitExprStatement(e)
 }
 
+type IfStmt struct {
+	Condition  expressions.Expression
+	ThenBranch Statement
+	ElseBranch Statement
+}
+
+func NewIf(condition expressions.Expression, thenStm, elseStm Statement) *IfStmt {
+	return &IfStmt{
+		Condition:  condition,
+		ThenBranch: thenStm,
+		ElseBranch: elseStm,
+	}
+}
+
+func (i IfStmt) Accept(visitor Visitor[any]) any {
+	return visitor.VisitIfStatement(i)
+}
+
 type PrintStmt struct {
 	Expression expressions.Expression
 }
@@ -43,6 +63,22 @@ func NewPrint(expr expressions.Expression) *PrintStmt {
 
 func (p PrintStmt) Accept(visitor Visitor[any]) any {
 	return visitor.VisitPrintStatement(p)
+}
+
+type WhileStmt struct {
+	Condition expressions.Expression
+	Body      Statement
+}
+
+func NewWhile(condition expressions.Expression, body Statement) *WhileStmt {
+	return &WhileStmt{
+		Condition: condition,
+		Body:      body,
+	}
+}
+
+func (w WhileStmt) Accept(visitor Visitor[any]) any {
+	return visitor.VisitWhileStatement(w)
 }
 
 type VarStmt struct {

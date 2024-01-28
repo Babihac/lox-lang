@@ -1,11 +1,10 @@
 package stm
 
 import (
-	"lox/expressions"
 	"lox/tokens"
 )
 
-type Visitor[T any] interface {
+type StmVisitor[T any] interface {
 	VisitExprStatement(stmt ExpressionStmt) T
 	VisitPrintStatement(stmt PrintStmt) T
 	VisitVarStatement(stmt VarStmt) T
@@ -13,33 +12,36 @@ type Visitor[T any] interface {
 	VisitBlockStatement(stmt BlockStmt) T
 	VisitIfStatement(stmt IfStmt) T
 	VisitWhileStatement(stmt WhileStmt) T
+	VisitBreakStatement(stmt BreakStmt) T
+	VisitFunctionStatement(stmt FunctionStm) T
+	VisitReturnStatement(stmt ReturnStmt) T
 }
 
 type Statement interface {
-	Accept(visitor Visitor[any]) any
+	Accept(visitor StmVisitor[any]) any
 }
 
 type ExpressionStmt struct {
-	Expression expressions.Expression
+	Expression Expression
 }
 
-func NewExpression(expr expressions.Expression) *ExpressionStmt {
+func NewExpression(expr Expression) *ExpressionStmt {
 	return &ExpressionStmt{
 		Expression: expr,
 	}
 }
 
-func (e ExpressionStmt) Accept(visitor Visitor[any]) any {
+func (e ExpressionStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitExprStatement(e)
 }
 
 type IfStmt struct {
-	Condition  expressions.Expression
+	Condition  Expression
 	ThenBranch Statement
 	ElseBranch Statement
 }
 
-func NewIf(condition expressions.Expression, thenStm, elseStm Statement) *IfStmt {
+func NewIf(condition Expression, thenStm, elseStm Statement) *IfStmt {
 	return &IfStmt{
 		Condition:  condition,
 		ThenBranch: thenStm,
@@ -47,53 +49,53 @@ func NewIf(condition expressions.Expression, thenStm, elseStm Statement) *IfStmt
 	}
 }
 
-func (i IfStmt) Accept(visitor Visitor[any]) any {
+func (i IfStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitIfStatement(i)
 }
 
 type PrintStmt struct {
-	Expression expressions.Expression
+	Expression Expression
 }
 
-func NewPrint(expr expressions.Expression) *PrintStmt {
+func NewPrint(expr Expression) *PrintStmt {
 	return &PrintStmt{
 		Expression: expr,
 	}
 }
 
-func (p PrintStmt) Accept(visitor Visitor[any]) any {
+func (p PrintStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitPrintStatement(p)
 }
 
 type WhileStmt struct {
-	Condition expressions.Expression
+	Condition Expression
 	Body      Statement
 }
 
-func NewWhile(condition expressions.Expression, body Statement) *WhileStmt {
+func NewWhile(condition Expression, body Statement) *WhileStmt {
 	return &WhileStmt{
 		Condition: condition,
 		Body:      body,
 	}
 }
 
-func (w WhileStmt) Accept(visitor Visitor[any]) any {
+func (w WhileStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitWhileStatement(w)
 }
 
 type VarStmt struct {
 	Name        tokens.Token
-	Initializer expressions.Expression
+	Initializer Expression
 }
 
-func NewVar(name tokens.Token, expr expressions.Expression) *VarStmt {
+func NewVar(name tokens.Token, expr Expression) *VarStmt {
 	return &VarStmt{
 		Name:        name,
 		Initializer: expr,
 	}
 }
 
-func (v VarStmt) Accept(visitior Visitor[any]) any {
+func (v VarStmt) Accept(visitior StmVisitor[any]) any {
 	return visitior.VisitVarStatement(v)
 }
 
@@ -107,8 +109,37 @@ func NewBlock(statements []Statement) *BlockStmt {
 	}
 }
 
-func (b BlockStmt) Accept(visitor Visitor[any]) any {
+func (b BlockStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitBlockStatement(b)
+}
+
+type BreakStmt struct {
+}
+
+func NewBreak() *BreakStmt {
+	return &BreakStmt{}
+}
+
+func (b BreakStmt) Accept(visitor StmVisitor[any]) any {
+	return visitor.VisitBreakStatement(b)
+}
+
+type FunctionStm struct {
+	Name   tokens.Token
+	Params []tokens.Token
+	Body   []Statement
+}
+
+func NewFunction(name tokens.Token, params []tokens.Token, body []Statement) *FunctionStm {
+	return &FunctionStm{
+		Name:   name,
+		Params: params,
+		Body:   body,
+	}
+}
+
+func (f FunctionStm) Accept(visitor StmVisitor[any]) any {
+	return visitor.VisitFunctionStatement(f)
 }
 
 type ErrorStmt struct {
@@ -121,6 +152,22 @@ func NewError(msg string) *ErrorStmt {
 	}
 }
 
-func (e ErrorStmt) Accept(visitor Visitor[any]) any {
+func (e ErrorStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitErrorStatement(e)
+}
+
+type ReturnStmt struct {
+	Keyword tokens.Token
+	Value   Expression
+}
+
+func NewReturn(keyword tokens.Token, value Expression) *ReturnStmt {
+	return &ReturnStmt{
+		Keyword: keyword,
+		Value:   value,
+	}
+}
+
+func (r ReturnStmt) Accept(visitor StmVisitor[any]) any {
+	return visitor.VisitReturnStatement(r)
 }

@@ -3,23 +3,37 @@ package interpreter
 import (
 	"fmt"
 	env "lox/environment"
-	"lox/expressions"
 	"lox/interfaces"
 	stm "lox/statement"
 	"lox/tokens"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type Interpreter struct {
-	errorLogger interfaces.ErrorLogger
-	environment *env.Environment
+	errorLogger          interfaces.ErrorLogger
+	environment          *env.Environment
+	nearestEnclosingLoop []*stm.WhileStmt
+	breaking             bool
+	globals              *env.Environment
 }
 
 func NewInterpreter(errorLogger interfaces.ErrorLogger) *Interpreter {
+	globals := env.NewEnvironment()
+
+	var clockCallable Callable = NewNativeFnCallable(
+		func() int { return 0 },
+		func(interpreter Interpreter, args []any) any {
+			return time.Now().UnixNano() / int64(time.Millisecond)
+		})
+
+	globals.Define("clock", clockCallable)
+
 	return &Interpreter{
 		errorLogger: errorLogger,
-		environment: env.NewEnvironment(),
+		environment: globals,
+		globals:     globals,
 	}
 }
 
@@ -46,6 +60,9 @@ func (i *Interpreter) InterpretRepl(statements []stm.Statement) {
 }
 
 func (i *Interpreter) execute(stmt stm.Statement) {
+	if i.breaking {
+		return
+	}
 	stmt.Accept(i)
 }
 
@@ -64,8 +81,25 @@ func (i *Interpreter) executeBlock(statements []stm.Statement, environment *env.
 
 }
 
-func (i *Interpreter) evaluate(expr expressions.Expression) any {
+func (i *Interpreter) evaluate(expr stm.Expression) any {
 	return expr.Accept(i)
+}
+
+func (i *Interpreter) VisitFunctionStatement(stmt stm.FunctionStm) any {
+	function := NewLoxFunction(stmt, i.environment)
+	i.environment.Define(stmt.Name.Lexeme, function)
+
+	return nil
+}
+
+func (i *Interpreter) VisitReturnStatement(stmt stm.ReturnStmt) any {
+	var value any = nil
+
+	if stmt.Value != nil {
+		value = i.evaluate(stmt.Value)
+	}
+
+	panic(value)
 }
 
 func (i *Interpreter) VisitBlockStatement(stmt stm.BlockStmt) any {
@@ -96,12 +130,26 @@ func (i *Interpreter) VisitIfStatement(stmt stm.IfStmt) any {
 }
 
 func (i *Interpreter) VisitWhileStatement(stmt stm.WhileStmt) any {
+	i.nearestEnclosingLoop = append(i.nearestEnclosingLoop, &stmt)
+
 	for {
 		if !i.isTruthy(i.evaluate(stmt.Condition)) {
 			break
 		}
 		i.execute(stmt.Body)
 	}
+	i.nearestEnclosingLoop = i.nearestEnclosingLoop[:len(i.nearestEnclosingLoop)-1]
+	i.breaking = false
+	return nil
+}
+
+func (i *Interpreter) VisitBreakStatement(stmt stm.BreakStmt) any {
+	if len(i.nearestEnclosingLoop) == 0 {
+		panic("Break not in loop")
+	}
+	enclosingLoop := i.nearestEnclosingLoop[len(i.nearestEnclosingLoop)-1]
+	i.breaking = true
+	enclosingLoop.Condition = stm.NewLiteral(false)
 	return nil
 }
 
@@ -122,8 +170,12 @@ func (i *Interpreter) VisitErrorStatement(stmt stm.ErrorStmt) any {
 	return nil
 }
 
-// VisitBinaryExpr implements expressions.Visitor.
-func (i *Interpreter) VisitBinaryExpr(expr expressions.Binary) any {
+func (i *Interpreter) VisitAnonymousFuncExpr(expr stm.AnonymousFunction) any {
+	panic("ha")
+}
+
+// VisitBinaryExpr implements stm.Visitor.
+func (i *Interpreter) VisitBinaryExpr(expr stm.Binary) any {
 	left := i.evaluate(expr.Left)
 	right := i.evaluate(expr.Right)
 
@@ -181,26 +233,26 @@ func (i *Interpreter) VisitBinaryExpr(expr expressions.Binary) any {
 	panic("Cannot execute expression\n")
 }
 
-// VisitErrorExpr implements expressions.Visitor.
-func (i *Interpreter) VisitErrorExpr(expr expressions.Error) any {
+// VisitErrorExpr implements stm.Visitor.
+func (i *Interpreter) VisitErrorExpr(expr stm.Error) any {
 	return expr.Value
 }
 
-func (i *Interpreter) VisitVariableExpr(expr expressions.Variable) any {
+func (i *Interpreter) VisitVariableExpr(expr stm.Variable) any {
 	return i.environment.Get(expr.Name)
 }
 
-// VisitGroupingExpr implements expressions.Visitor.
-func (i *Interpreter) VisitGroupingExpr(expr expressions.Grouping) any {
+// VisitGroupingExpr implements stm.Visitor.
+func (i *Interpreter) VisitGroupingExpr(expr stm.Grouping) any {
 	return i.evaluate(expr.Expression)
 }
 
-// VisitLiteralExpr implements expressions.Visitor.
-func (i *Interpreter) VisitLiteralExpr(expr expressions.Literal) any {
+// VisitLiteralExpr implements stm.Visitor.
+func (i *Interpreter) VisitLiteralExpr(expr stm.Literal) any {
 	return expr.Value
 }
 
-func (i *Interpreter) VisitLogicalExpr(expr expressions.Logical) any {
+func (i *Interpreter) VisitLogicalExpr(expr stm.Logical) any {
 	left := i.evaluate(expr.Left)
 
 	if expr.Operator.TokenType == tokens.OR {
@@ -216,8 +268,8 @@ func (i *Interpreter) VisitLogicalExpr(expr expressions.Logical) any {
 	return i.evaluate(expr.Right)
 }
 
-// VisitTernaryExpr implements expressions.Visitor.
-func (i *Interpreter) VisitTernaryExpr(expr expressions.Ternary) any {
+// VisitTernaryExpr implements stm.Visitor.
+func (i *Interpreter) VisitTernaryExpr(expr stm.Ternary) any {
 	condition := i.evaluate(expr.Condition)
 
 	i.checkBoolOperands(expr.Operator, condition)
@@ -228,8 +280,8 @@ func (i *Interpreter) VisitTernaryExpr(expr expressions.Ternary) any {
 	return i.evaluate(expr.Alternative)
 }
 
-// VisitUnaryExpr implements expressions.Visitor.
-func (i *Interpreter) VisitUnaryExpr(expr expressions.Unary) any {
+// VisitUnaryExpr implements stm.Visitor.
+func (i *Interpreter) VisitUnaryExpr(expr stm.Unary) any {
 	right := i.evaluate(expr.Right)
 
 	switch expr.Operator.TokenType {
@@ -243,7 +295,30 @@ func (i *Interpreter) VisitUnaryExpr(expr expressions.Unary) any {
 	return nil
 }
 
-func (i *Interpreter) VisitAssignExpr(expr expressions.Assign) any {
+func (i *Interpreter) VisitCallExpr(expr stm.Call) any {
+	callee := i.evaluate(expr.Callee)
+	arguments := make([]any, 0)
+
+	for _, arg := range expr.Arguments {
+		arguments = append(arguments, i.evaluate(arg))
+	}
+
+	function, ok := callee.(Callable)
+
+	if !ok {
+		panic("Can only call functions and classes.")
+	}
+
+	if function.Arity() != len(arguments) {
+		errorMsg := fmt.Sprintf("line[%d] Expected %d arguments but got %d", expr.Paren.Line, function.Arity(), len(arguments))
+		panic(errorMsg)
+	}
+
+	return function.Call(*i, arguments)
+
+}
+
+func (i *Interpreter) VisitAssignExpr(expr stm.Assign) any {
 	value := i.evaluate(expr.Value)
 	i.environment.Assign(expr.Name, value)
 	return value

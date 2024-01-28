@@ -3,7 +3,6 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"lox/expressions"
 	"lox/interfaces"
 	stm "lox/statement"
 	"lox/tokens"
@@ -81,7 +80,7 @@ func (p *Parser) varDeclaration() stm.Statement {
 		return stm.NewError("Invalid statement")
 	}
 
-	var initializer expressions.Expression = nil
+	var initializer stm.Expression = nil
 
 	if p.match(tokens.EQUAL) {
 		initializer = p.expression()
@@ -111,6 +110,19 @@ func (p *Parser) statement() stm.Statement {
 	if p.match((tokens.LEFT_BRACE)) {
 		return stm.NewBlock(p.block())
 	}
+
+	if p.match(tokens.BREAK) {
+		return p.breakStatement()
+	}
+
+	if p.match(tokens.FUN) {
+		return p.functionStatement("function")
+	}
+
+	if p.match(tokens.RETURN) {
+		return p.returnStatement()
+	}
+
 	return p.expressionStatement()
 }
 
@@ -118,8 +130,8 @@ func (p *Parser) forStatement() stm.Statement {
 	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'for'.")
 
 	var initializer stm.Statement
-	var condition expressions.Expression = nil
-	var increment expressions.Expression = nil
+	var condition stm.Expression = nil
+	var increment stm.Expression = nil
 
 	if p.match(tokens.SEMICOLON) {
 		initializer = nil
@@ -148,7 +160,7 @@ func (p *Parser) forStatement() stm.Statement {
 	}
 
 	if condition == nil {
-		condition = expressions.NewLiteral(true)
+		condition = stm.NewLiteral(true)
 	}
 
 	body = stm.NewWhile(condition, body)
@@ -185,15 +197,62 @@ func (p *Parser) ifStatement() stm.IfStmt {
 	return *stm.NewIf(condition, thenBranch, elseBranch)
 }
 
+func (p *Parser) breakStatement() stm.BreakStmt {
+	p.consume(tokens.SEMICOLON, "Expect ';' after break.\n")
+
+	return *stm.NewBreak()
+}
+
+func (p *Parser) functionStatement(kind string) stm.Statement {
+
+	name, _ := p.consume(tokens.IDENTIFIER, fmt.Sprintf("Expect %s name\n", kind))
+
+	parameters := make([]tokens.Token, 0)
+	p.consume(tokens.LEFT_PAREN, fmt.Sprintf("Expect ( after %s name \n", kind))
+
+	if !p.check(tokens.RIGHT_PAREN) {
+		for {
+			param, _ := p.consume(tokens.IDENTIFIER, "Expect parameter name.\n")
+			parameters = append(parameters, *param)
+
+			if len(parameters) > 255 {
+				p.errorLogger.ErrorForToken(p.peek(), "Can't have more than 255 arguments.\n")
+			}
+
+			if !p.match(tokens.COMMA) {
+				break
+			}
+		}
+	}
+	p.consume(tokens.RIGHT_PAREN, "Expect ')' after arguments.")
+	p.consume(tokens.LEFT_BRACE, fmt.Sprintf("Expect { before %s body\n", kind))
+	body := p.block()
+
+	return *stm.NewFunction(*name, parameters, body)
+}
+
+func (p *Parser) returnStatement() stm.ReturnStmt {
+	keyword := p.previous()
+	var value stm.Expression = nil
+
+	if !p.check(tokens.SEMICOLON) {
+		value = p.expression()
+	}
+
+	p.consume(tokens.SEMICOLON, "Expect ';' after return value.")
+
+	return *stm.NewReturn(keyword, value)
+}
+
 func (p *Parser) printStatement() stm.PrintStmt {
 	value := p.expression()
-	p.consume(tokens.SEMICOLON, "Expect ';' after value.")
+	p.consume(tokens.SEMICOLON, "Expect ';' after value of print.\n")
 	return *stm.NewPrint(value)
 }
 
 func (p *Parser) expressionStatement() stm.ExpressionStmt {
 	expr := p.expression()
-	p.consume(tokens.SEMICOLON, "Expect ';' after value.")
+	p.consume(tokens.SEMICOLON, "Expect ';' after value.\n")
 
 	return *stm.NewExpression(expr)
 
@@ -215,21 +274,21 @@ func (p *Parser) block() []stm.Statement {
 	return statements
 }
 
-func (p *Parser) expression() expressions.Expression {
+func (p *Parser) expression() stm.Expression {
 	return p.assignemt()
 }
 
-func (p *Parser) assignemt() expressions.Expression {
+func (p *Parser) assignemt() stm.Expression {
 	expr := p.ternary()
 
 	if p.match(tokens.EQUAL) {
 		equals := p.previous()
 		value := p.assignemt()
 
-		if v, ok := expr.(*expressions.Variable); ok {
+		if v, ok := expr.(*stm.Variable); ok {
 			name := v.Name
 
-			return expressions.NewAssign(name, value)
+			return stm.NewAssign(name, value)
 		}
 		p.errorLogger.ErrorForToken(equals, "Invalid assignment target.")
 	}
@@ -237,7 +296,7 @@ func (p *Parser) assignemt() expressions.Expression {
 
 }
 
-func (p *Parser) ternary() expressions.Expression {
+func (p *Parser) ternary() stm.Expression {
 	expression := p.or()
 
 	for {
@@ -249,18 +308,18 @@ func (p *Parser) ternary() expressions.Expression {
 		_, err := p.consume(tokens.COLON, "expected alternative expression in ternary\n")
 
 		if err != nil {
-			return expressions.NewError("Invalid ternary expression\n")
+			return stm.NewErrorExpr("Invalid ternary expression\n")
 		}
 
 		alternative := p.ternary()
 
-		expression = expressions.NewTernary(operator, expression, consequent, alternative)
+		expression = stm.NewTernary(operator, expression, consequent, alternative)
 	}
 
 	return expression
 }
 
-func (p *Parser) or() expressions.Expression {
+func (p *Parser) or() stm.Expression {
 	expr := p.and()
 
 	for {
@@ -270,12 +329,12 @@ func (p *Parser) or() expressions.Expression {
 		operator := p.previous()
 		right := p.and()
 
-		expr = expressions.NewLogical(expr, operator, right)
+		expr = stm.NewLogical(expr, operator, right)
 	}
 	return expr
 }
 
-func (p *Parser) and() expressions.Expression {
+func (p *Parser) and() stm.Expression {
 	expr := p.equality()
 
 	for {
@@ -286,13 +345,13 @@ func (p *Parser) and() expressions.Expression {
 		operator := p.previous()
 		right := p.equality()
 
-		expr = expressions.NewLogical(expr, operator, right)
+		expr = stm.NewLogical(expr, operator, right)
 	}
 
 	return expr
 }
 
-func (p *Parser) equality() expressions.Expression {
+func (p *Parser) equality() stm.Expression {
 	expression := p.comparison()
 
 	for {
@@ -302,14 +361,14 @@ func (p *Parser) equality() expressions.Expression {
 
 		operator := p.previous()
 		right := p.comparison()
-		expression = expressions.NewBinary(expression, operator, right)
+		expression = stm.NewBinary(expression, operator, right)
 
 	}
 
 	return expression
 }
 
-func (p *Parser) comparison() expressions.Expression {
+func (p *Parser) comparison() stm.Expression {
 	expr := p.term()
 
 	for {
@@ -319,13 +378,13 @@ func (p *Parser) comparison() expressions.Expression {
 
 		operator := p.previous()
 		right := p.term()
-		expr = expressions.NewBinary(expr, operator, right)
+		expr = stm.NewBinary(expr, operator, right)
 
 	}
 	return expr
 }
 
-func (p *Parser) term() expressions.Expression {
+func (p *Parser) term() stm.Expression {
 	expr := p.factor()
 
 	for {
@@ -335,13 +394,13 @@ func (p *Parser) term() expressions.Expression {
 
 		operator := p.previous()
 		right := p.factor()
-		expr = expressions.NewBinary(expr, operator, right)
+		expr = stm.NewBinary(expr, operator, right)
 
 	}
 	return expr
 }
 
-func (p *Parser) factor() expressions.Expression {
+func (p *Parser) factor() stm.Expression {
 	expr := p.unary()
 
 	for {
@@ -351,13 +410,13 @@ func (p *Parser) factor() expressions.Expression {
 
 		operator := p.previous()
 		right := p.unary()
-		expr = expressions.NewBinary(expr, operator, right)
+		expr = stm.NewBinary(expr, operator, right)
 	}
 	return expr
 }
 
-func (p *Parser) unary() expressions.Expression {
-	expr := p.primary()
+func (p *Parser) unary() stm.Expression {
+	expr := p.call()
 
 	for {
 		if !p.match(tokens.MINUS, tokens.BANG) {
@@ -365,31 +424,76 @@ func (p *Parser) unary() expressions.Expression {
 		}
 		operator := p.previous()
 		right := p.primary()
-		expr = expressions.NewUnary(operator, right)
+		expr = stm.NewUnary(operator, right)
 	}
 
 	return expr
 }
 
-func (p *Parser) primary() expressions.Expression {
+func (p *Parser) call() stm.Expression {
+	expr := p.anonymousFunction()
+
+	for {
+		if p.match(tokens.LEFT_PAREN) {
+			expr = p.finishCall(expr)
+		} else {
+			break
+		}
+	}
+
+	return expr
+}
+
+func (p *Parser) anonymousFunction() stm.Expression {
+	expr := p.primary()
+
+	if p.match(tokens.FUN) {
+	}
+
+	return expr
+}
+
+func (p *Parser) finishCall(expr stm.Expression) stm.Expression {
+	arguments := make([]stm.Expression, 0)
+
+	if !p.check(tokens.RIGHT_PAREN) {
+		for {
+			arguments = append(arguments, p.expression())
+
+			if len(arguments) > 255 {
+				p.errorLogger.ErrorForToken(p.peek(), "Can't have more than 255 arguments.")
+			}
+
+			if !p.match(tokens.COMMA) {
+				break
+			}
+		}
+	}
+	paren, _ := p.consume(tokens.RIGHT_PAREN, "Expect ')' after arguments.")
+
+	return stm.NewCall(expr, *paren, arguments)
+
+}
+
+func (p *Parser) primary() stm.Expression {
 	if p.match(tokens.TRUE) {
-		return expressions.NewLiteral(true)
+		return stm.NewLiteral(true)
 	}
 
 	if p.match(tokens.FALSE) {
-		return expressions.NewLiteral(false)
+		return stm.NewLiteral(false)
 	}
 
 	if p.match(tokens.NIL) {
-		return expressions.NewLiteral(nil)
+		return stm.NewLiteral(nil)
 	}
 
 	if p.match(tokens.NUMBER, tokens.STRING) {
-		return expressions.NewLiteral(p.previous().Literal)
+		return stm.NewLiteral(p.previous().Literal)
 	}
 
 	if p.match(tokens.IDENTIFIER) {
-		return expressions.NewVariable(p.previous())
+		return stm.NewVariable(p.previous())
 	}
 
 	if p.match(tokens.LEFT_PAREN) {
@@ -397,12 +501,12 @@ func (p *Parser) primary() expressions.Expression {
 		_, err := p.consume(tokens.RIGHT_PAREN, "Expect ')' after expression.\n")
 
 		if err == nil {
-			return expressions.NewGrouping(expr)
+			return stm.NewGrouping(expr)
 		}
 	}
 
 	errorMessage := fmt.Sprintf("Error during parsing: unexpected character: %s", p.peek().Lexeme)
-	return expressions.NewError(errorMessage)
+	return stm.NewErrorExpr(errorMessage)
 
 }
 
@@ -447,7 +551,7 @@ func (p *Parser) consume(tokenType tokens.TokenType, errorMessage string) (*toke
 		token := p.advance()
 		return &token, nil
 	}
-	err := p.errorLogger.ErrorForToken(p.peek(), errorMessage)
+	err := p.errorLogger.ErrorForToken(p.previous(), errorMessage)
 	done := make(chan bool)
 	p.errorHandler <- ErrorHandlerEvent{Err: err, Done: done}
 	<-done

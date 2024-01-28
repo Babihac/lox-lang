@@ -1,0 +1,24 @@
+fun je_to_tajnej(first_name) {
+    if (first_name == "Adri") {
+      print "Ano";
+    } else {
+      print "Ano";
+    }
+  }
+ 
+ fun getTajnej() {
+  print "haha";
+  return 666;
+  print "lolo";
+ }
+
+ print getTajnej() + 1;
+
+ var x = "sss";
+
+ 
+ fun lala(fn) {
+  print "inside lala" + fn;
+ }
+
+ lala(2);

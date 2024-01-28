@@ -27,7 +27,7 @@ func (el ErrorLogger) Report(line int, where string, message string) {
 }
 
 func (el ErrorLogger) ErrorForToken(token tokens.Token, message string) error {
-	if token.TokenType == tokens.EOF {
+	if token.TokenType != tokens.EOF {
 		el.Report(token.Line, fmt.Sprintf("at '%s '", token.Lexeme), message)
 	}
 

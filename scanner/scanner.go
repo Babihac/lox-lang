@@ -46,6 +46,7 @@ func NewScanner(errorLogger interfaces.ErrorLogger) *Scanner {
 			"true":   tokens.TRUE,
 			"var":    tokens.VAR,
 			"while":  tokens.WHILE,
+			"break":  tokens.BREAK,
 		},
 	}
 }
@@ -152,6 +153,7 @@ func (sc *Scanner) addToken(tokenType tokens.TokenType) {
 
 func (sc *Scanner) addTokenWithLiteral(tokenType tokens.TokenType, literal interface{}) {
 	text := sc.source[sc.start:sc.current]
+
 	sc.tokens = append(sc.tokens, tokens.NewToken(tokenType, text, literal, sc.line))
 }
 

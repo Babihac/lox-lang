@@ -23,7 +23,7 @@ func main() {
 
 	lox.SetComponents(scanner, parses, interpreter)
 
-	lox.RunFile("lox.txt")
+	lox.RunFile("testFiles/func.txt")
 
 	// expr := expressions.Binary{
 	// 	Left:     expressions.Binary{Operator: tokens.NewToken(tokens.PLUS, "+", nil, 1), Left: expressions.Literal{Value: 1}, Right: expressions.Literal{Value: 2}},

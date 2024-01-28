@@ -1,10 +1,10 @@
-package expressions
+package stm
 
 import (
 	"lox/tokens"
 )
 
-type Visitor[T any] interface {
+type ExprVisitor[T any] interface {
 	VisitBinaryExpr(expr Binary) T
 	VisitGroupingExpr(expr Grouping) T
 	VisitLiteralExpr(expr Literal) T
@@ -14,10 +14,12 @@ type Visitor[T any] interface {
 	VisitVariableExpr(expr Variable) T
 	VisitAssignExpr(expr Assign) T
 	VisitLogicalExpr(expr Logical) T
+	VisitCallExpr(expr Call) T
+	VisitAnonymousFuncExpr(expr AnonymousFunction) T
 }
 
 type Expression interface {
-	Accept(visitor Visitor[any]) any
+	Accept(visitor ExprVisitor[any]) any
 }
 
 type Grouping struct {
@@ -30,7 +32,7 @@ func NewGrouping(expr Expression) *Grouping {
 	}
 }
 
-func (g Grouping) Accept(visitor Visitor[any]) any {
+func (g Grouping) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitGroupingExpr(g)
 }
 
@@ -46,7 +48,7 @@ func NewAssign(name tokens.Token, value Expression) *Assign {
 	}
 }
 
-func (a Assign) Accept(visitor Visitor[any]) any {
+func (a Assign) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitAssignExpr(a)
 }
 
@@ -64,7 +66,7 @@ func NewBinary(left Expression, operator tokens.Token, right Expression) *Binary
 	}
 }
 
-func (b Binary) Accept(visitor Visitor[any]) any {
+func (b Binary) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitBinaryExpr(b)
 }
 
@@ -78,7 +80,7 @@ func NewLiteral(value any) *Literal {
 	}
 }
 
-func (l Literal) Accept(visitor Visitor[any]) any {
+func (l Literal) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitLiteralExpr(l)
 }
 
@@ -96,7 +98,7 @@ func NewLogical(left Expression, operator tokens.Token, right Expression) *Logic
 	}
 }
 
-func (l Logical) Accept(visitor Visitor[any]) any {
+func (l Logical) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitLogicalExpr(l)
 }
 
@@ -112,7 +114,7 @@ func NewUnary(operator tokens.Token, right Expression) *Unary {
 	}
 }
 
-func (u Unary) Accept(visitor Visitor[any]) any {
+func (u Unary) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitUnaryExpr(u)
 }
 
@@ -120,11 +122,11 @@ type Error struct {
 	Value string
 }
 
-func NewError(value string) *Error {
+func NewErrorExpr(value string) *Error {
 	return &Error{Value: value}
 }
 
-func (e Error) Accept(visitor Visitor[any]) any {
+func (e Error) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitErrorExpr(e)
 }
 
@@ -144,7 +146,7 @@ func NewTernary(operator tokens.Token, condition Expression, consequent Expressi
 	}
 }
 
-func (t Ternary) Accept(visitor Visitor[any]) any {
+func (t Ternary) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitTernaryExpr(t)
 }
 
@@ -158,6 +160,40 @@ func NewVariable(name tokens.Token) *Variable {
 	}
 }
 
-func (v Variable) Accept(visitor Visitor[any]) any {
+func (v Variable) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitVariableExpr(v)
+}
+
+type Call struct {
+	Callee    Expression
+	Paren     tokens.Token
+	Arguments []Expression
+}
+
+func NewCall(callee Expression, paren tokens.Token, arguments []Expression) *Call {
+	return &Call{
+		Callee:    callee,
+		Paren:     paren,
+		Arguments: arguments,
+	}
+}
+
+func (c Call) Accept(visitor ExprVisitor[any]) any {
+	return visitor.VisitCallExpr(c)
+}
+
+type AnonymousFunction struct {
+	Params []tokens.Token
+	Body   []Statement
+}
+
+func NewAnonymousFunction(params []tokens.Token, body []Statement) *AnonymousFunction {
+	return &AnonymousFunction{
+		Params: params,
+		Body:   body,
+	}
+}
+
+func (af AnonymousFunction) Accept(visitor ExprVisitor[any]) any {
+	return visitor.VisitAnonymousFuncExpr(af)
 }

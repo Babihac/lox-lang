@@ -171,7 +171,9 @@ func (i *Interpreter) VisitErrorStatement(stmt stm.ErrorStmt) any {
 }
 
 func (i *Interpreter) VisitAnonymousFuncExpr(expr stm.AnonymousFunction) any {
-	panic("ha")
+	function := NewAnonymousFunction(expr, i.environment)
+
+	return function
 }
 
 // VisitBinaryExpr implements stm.Visitor.

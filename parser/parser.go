@@ -45,9 +45,9 @@ func (p *Parser) handleError() {
 }
 
 func (p *Parser) handlePanic() {
-	if r := recover(); r != nil {
-		p.errorLogger.Error(p.peek().Line, r.(string))
-	}
+	// if r := recover(); r != nil {
+	// 	p.errorLogger.Error(p.peek().Line, "ajajaj")
+	// }
 }
 
 func (p *Parser) Parse() []stm.Statement {
@@ -205,30 +205,15 @@ func (p *Parser) breakStatement() stm.BreakStmt {
 
 func (p *Parser) functionStatement(kind string) stm.Statement {
 
-	name, _ := p.consume(tokens.IDENTIFIER, fmt.Sprintf("Expect %s name\n", kind))
+	name, err := p.consume(tokens.IDENTIFIER, fmt.Sprintf("Expect %s name\n", kind))
 
-	parameters := make([]tokens.Token, 0)
-	p.consume(tokens.LEFT_PAREN, fmt.Sprintf("Expect ( after %s name \n", kind))
-
-	if !p.check(tokens.RIGHT_PAREN) {
-		for {
-			param, _ := p.consume(tokens.IDENTIFIER, "Expect parameter name.\n")
-			parameters = append(parameters, *param)
-
-			if len(parameters) > 255 {
-				p.errorLogger.ErrorForToken(p.peek(), "Can't have more than 255 arguments.\n")
-			}
-
-			if !p.match(tokens.COMMA) {
-				break
-			}
-		}
+	if err != nil {
+		return stm.NewError("error creating function statement")
 	}
-	p.consume(tokens.RIGHT_PAREN, "Expect ')' after arguments.")
-	p.consume(tokens.LEFT_BRACE, fmt.Sprintf("Expect { before %s body\n", kind))
-	body := p.block()
 
-	return *stm.NewFunction(*name, parameters, body)
+	functionComponents := p.parseFunctionComponents(kind)
+
+	return *stm.NewFunction(*name, functionComponents.parameters, functionComponents.body)
 }
 
 func (p *Parser) returnStatement() stm.ReturnStmt {
@@ -448,6 +433,10 @@ func (p *Parser) anonymousFunction() stm.Expression {
 	expr := p.primary()
 
 	if p.match(tokens.FUN) {
+
+		functionComponents := p.parseFunctionComponents("anonymous function")
+
+		return *stm.NewAnonymousFunction(functionComponents.parameters, functionComponents.body)
 	}
 
 	return expr
@@ -469,7 +458,11 @@ func (p *Parser) finishCall(expr stm.Expression) stm.Expression {
 			}
 		}
 	}
-	paren, _ := p.consume(tokens.RIGHT_PAREN, "Expect ')' after arguments.")
+	paren, err := p.consume(tokens.RIGHT_PAREN, "Expect ')' after arguments.")
+
+	if err != nil {
+		return stm.NewErrorExpr("Error calling function")
+	}
 
 	return stm.NewCall(expr, *paren, arguments)
 
@@ -571,4 +564,34 @@ func (p *Parser) synchronize() {
 		}
 		p.advance()
 	}
+}
+
+func (p *Parser) parseFunctionComponents(kind string) *FunctionComponents {
+	parameters := make([]tokens.Token, 0)
+	p.consume(tokens.LEFT_PAREN, fmt.Sprintf("Expect ( after %s name \n", kind))
+
+	if !p.check(tokens.RIGHT_PAREN) {
+		for {
+			param, err := p.consume(tokens.IDENTIFIER, "Expect parameter name.\n")
+
+			if err != nil {
+				return nil
+			}
+
+			parameters = append(parameters, *param)
+
+			if len(parameters) > 255 {
+				p.errorLogger.ErrorForToken(p.peek(), "Can't have more than 255 arguments.\n")
+			}
+
+			if !p.match(tokens.COMMA) {
+				break
+			}
+		}
+	}
+	p.consume(tokens.RIGHT_PAREN, "Expect ')' after arguments.")
+	p.consume(tokens.LEFT_BRACE, fmt.Sprintf("Expect { before %s body\n", kind))
+	body := p.block()
+
+	return NewFunctionComponents(parameters, body)
 }

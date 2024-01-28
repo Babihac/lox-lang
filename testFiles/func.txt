@@ -18,7 +18,14 @@ fun je_to_tajnej(first_name) {
 
  
  fun lala(fn) {
-  print "inside lala" + fn;
+  return "this is fun";
  }
 
- lala(2);
+ fun thrice(fn) {
+       for (var i = 1; i <= 3; i = i + 1) {
+fn(i); }
+}
+
+ thrice(fun (a) {
+      print a;
+});

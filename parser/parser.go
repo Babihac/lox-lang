@@ -283,7 +283,6 @@ func (p *Parser) assignemt() stm.Expression {
 
 func (p *Parser) ternary() stm.Expression {
 	expression := p.or()
-
 	for {
 		if !p.match(tokens.QUESTION_MARK) {
 			break
@@ -401,18 +400,13 @@ func (p *Parser) factor() stm.Expression {
 }
 
 func (p *Parser) unary() stm.Expression {
-	expr := p.call()
-
-	for {
-		if !p.match(tokens.MINUS, tokens.BANG) {
-			break
-		}
+	if p.match(tokens.MINUS, tokens.BANG) {
 		operator := p.previous()
 		right := p.primary()
-		expr = stm.NewUnary(operator, right)
+		return stm.NewUnary(operator, right)
 	}
 
-	return expr
+	return p.call()
 }
 
 func (p *Parser) call() stm.Expression {

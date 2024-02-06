@@ -7,6 +7,7 @@ import (
 	"lox/interfaces"
 	"lox/interpreter"
 	"lox/parser"
+	"lox/resolver"
 	"lox/scanner"
 	"os"
 )
@@ -20,12 +21,14 @@ type Lox struct {
 	scanner         *scanner.Scanner
 	parser          *parser.Parser
 	interpreter     *interpreter.Interpreter
+	resolver        *resolver.Resolver
 }
 
-func (l *Lox) SetComponents(scanner *scanner.Scanner, parser *parser.Parser, interpreter *interpreter.Interpreter) {
+func (l *Lox) SetComponents(scanner *scanner.Scanner, parser *parser.Parser, interpreter *interpreter.Interpreter, resolver *resolver.Resolver) {
 	l.scanner = scanner
 	l.parser = parser
 	l.interpreter = interpreter
+	l.resolver = resolver
 }
 
 func (l *Lox) RunFile(path string) {
@@ -84,9 +87,12 @@ func (l *Lox) run(source string) {
 	if l.HadError {
 		return
 	}
-	// printer := ast.NewPrinter()
 
-	// fmt.Println(printer.Print(expr))
+	l.resolver.ResolveBlock(stmts)
+
+	if l.HadError {
+		return
+	}
 
 	l.interpreter.Interpret(stmts)
 

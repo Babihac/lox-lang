@@ -11,8 +11,8 @@ type ExprVisitor[T any] interface {
 	VisitUnaryExpr(expr Unary) T
 	VisitErrorExpr(expr Error) T
 	VisitTernaryExpr(expr Ternary) T
-	VisitVariableExpr(expr Variable) T
-	VisitAssignExpr(expr Assign) T
+	VisitVariableExpr(expr *Variable) T
+	VisitAssignExpr(expr *Assign) T
 	VisitLogicalExpr(expr Logical) T
 	VisitCallExpr(expr Call) T
 	VisitAnonymousFuncExpr(expr AnonymousFunction) T
@@ -48,7 +48,7 @@ func NewAssign(name tokens.Token, value Expression) *Assign {
 	}
 }
 
-func (a Assign) Accept(visitor ExprVisitor[any]) any {
+func (a *Assign) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitAssignExpr(a)
 }
 
@@ -160,7 +160,7 @@ func NewVariable(name tokens.Token) *Variable {
 	}
 }
 
-func (v Variable) Accept(visitor ExprVisitor[any]) any {
+func (v *Variable) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitVariableExpr(v)
 }
 

@@ -5,6 +5,7 @@ import (
 	"lox/interpreter"
 	"lox/lox"
 	"lox/parser"
+	"lox/resolver"
 	"lox/scanner"
 )
 
@@ -20,10 +21,11 @@ func main() {
 	scanner := scanner.NewScanner(errorLogger)
 	parses := parser.NewParser(errorLogger)
 	interpreter := interpreter.NewInterpreter(errorLogger)
+	resolver := resolver.NewResolver(*interpreter, errorLogger)
 
-	lox.SetComponents(scanner, parses, interpreter)
+	lox.SetComponents(scanner, parses, interpreter, resolver)
 
-	lox.RunFile("testFiles/func.txt")
+	lox.RunFile("testFiles/resolver.txt")
 
 	// expr := expressions.Binary{
 	// 	Left:     expressions.Binary{Operator: tokens.NewToken(tokens.PLUS, "+", nil, 1), Left: expressions.Literal{Value: 1}, Right: expressions.Literal{Value: 2}},

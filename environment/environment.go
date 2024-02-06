@@ -42,6 +42,26 @@ func (e *Environment) Get(name tokens.Token) any {
 	panic(msg)
 }
 
+func (e *Environment) GetAt(depth int, name string) any {
+	value, ok := e.ancestor(depth).Values[name]
+
+	if ok {
+		return value
+	}
+
+	msg := fmt.Sprintf("Undefined variable: %s.\n", name)
+	panic(msg)
+}
+
+func (e *Environment) ancestor(depth int) *Environment {
+	bindedEnv := e
+
+	for i := 0; i < depth; i++ {
+		bindedEnv = bindedEnv.Enclosing
+	}
+	return bindedEnv
+}
+
 func (e *Environment) Assign(name tokens.Token, value any) {
 	if _, ok := e.Values[name.Lexeme]; ok {
 		e.Values[name.Lexeme] = value
@@ -54,4 +74,8 @@ func (e *Environment) Assign(name tokens.Token, value any) {
 	}
 
 	panic(fmt.Sprintf("Undefined variable %s.", name.Lexeme))
+}
+
+func (e *Environment) AssignAt(depth int, name tokens.Token, value any) {
+	e.ancestor(depth).Values[name.Lexeme] = value
 }

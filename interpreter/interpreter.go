@@ -17,6 +17,7 @@ type Interpreter struct {
 	nearestEnclosingLoop []*stm.WhileStmt
 	breaking             bool
 	globals              *env.Environment
+	locals               map[stm.Expression]int
 }
 
 func NewInterpreter(errorLogger interfaces.ErrorLogger) *Interpreter {
@@ -34,6 +35,7 @@ func NewInterpreter(errorLogger interfaces.ErrorLogger) *Interpreter {
 		errorLogger: errorLogger,
 		environment: globals,
 		globals:     globals,
+		locals:      make(map[stm.Expression]int),
 	}
 }
 
@@ -64,6 +66,10 @@ func (i *Interpreter) execute(stmt stm.Statement) {
 		return
 	}
 	stmt.Accept(i)
+}
+
+func (i *Interpreter) Resolve(expr stm.Expression, depth int) {
+	i.locals[expr] = depth
 }
 
 func (i *Interpreter) executeBlock(statements []stm.Statement, environment *env.Environment) {
@@ -240,8 +246,8 @@ func (i *Interpreter) VisitErrorExpr(expr stm.Error) any {
 	return expr.Value
 }
 
-func (i *Interpreter) VisitVariableExpr(expr stm.Variable) any {
-	return i.environment.Get(expr.Name)
+func (i *Interpreter) VisitVariableExpr(expr *stm.Variable) any {
+	return i.lookupVariable(expr.Name, expr)
 }
 
 // VisitGroupingExpr implements stm.Visitor.
@@ -320,9 +326,16 @@ func (i *Interpreter) VisitCallExpr(expr stm.Call) any {
 
 }
 
-func (i *Interpreter) VisitAssignExpr(expr stm.Assign) any {
+func (i *Interpreter) VisitAssignExpr(expr *stm.Assign) any {
 	value := i.evaluate(expr.Value)
-	i.environment.Assign(expr.Name, value)
+	depth, ok := i.locals[expr]
+
+	if ok {
+		i.environment.AssignAt(depth, expr.Name, value)
+	} else {
+		i.globals.Assign(expr.Name, value)
+	}
+
 	return value
 }
 
@@ -337,6 +350,15 @@ func (i *Interpreter) isTruthy(value any) bool {
 		return boolValue
 	}
 	return true
+}
+
+func (i *Interpreter) lookupVariable(name tokens.Token, expr stm.Expression) any {
+	depth, ok := i.locals[expr]
+
+	if ok {
+		return i.environment.GetAt(depth, name.Lexeme)
+	}
+	return i.globals.Get(name)
 }
 
 func (i *Interpreter) tryTypeAssert(value any, targetType reflect.Kind) bool {

@@ -17,7 +17,7 @@ func NewLoxFunction(declaration stm.FunctionStm, closure *env.Environment) *LoxF
 	}
 }
 
-func (l LoxFunction) Call(interpreter Interpreter, args []any) (result any) {
+func (l LoxFunction) Call(interpreter *Interpreter, args []any) (result any) {
 
 	defer func() {
 		result = recover()
@@ -26,7 +26,8 @@ func (l LoxFunction) Call(interpreter Interpreter, args []any) (result any) {
 	environment := env.NewEnvironment(l.Closure)
 
 	for i, param := range l.Declaration.Params {
-		environment.Define(param.Lexeme, args[i])
+		index := interpreter.locals[param]
+		interpreter.LocalVariables[index] = args[i]
 	}
 
 	interpreter.executeBlock(l.Declaration.Body, environment)

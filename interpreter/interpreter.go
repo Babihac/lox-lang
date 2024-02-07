@@ -17,7 +17,8 @@ type Interpreter struct {
 	nearestEnclosingLoop []*stm.WhileStmt
 	breaking             bool
 	globals              *env.Environment
-	locals               map[stm.Expression]int
+	locals               map[tokens.Token]int
+	LocalVariables       []any
 }
 
 func NewInterpreter(errorLogger interfaces.ErrorLogger) *Interpreter {
@@ -25,17 +26,18 @@ func NewInterpreter(errorLogger interfaces.ErrorLogger) *Interpreter {
 
 	var clockCallable Callable = NewNativeFnCallable(
 		func() int { return 0 },
-		func(interpreter Interpreter, args []any) any {
+		func(interpreter *Interpreter, args []any) any {
 			return time.Now().UnixNano() / int64(time.Millisecond)
 		})
 
 	globals.Define("clock", clockCallable)
 
 	return &Interpreter{
-		errorLogger: errorLogger,
-		environment: globals,
-		globals:     globals,
-		locals:      make(map[stm.Expression]int),
+		errorLogger:    errorLogger,
+		environment:    globals,
+		globals:        globals,
+		locals:         make(map[tokens.Token]int),
+		LocalVariables: make([]any, 0),
 	}
 }
 
@@ -68,8 +70,8 @@ func (i *Interpreter) execute(stmt stm.Statement) {
 	stmt.Accept(i)
 }
 
-func (i *Interpreter) Resolve(expr stm.Expression, depth int) {
-	i.locals[expr] = depth
+func (i *Interpreter) Resolve(token tokens.Token, depth int, index int) {
+	i.locals[token] = index
 }
 
 func (i *Interpreter) executeBlock(statements []stm.Statement, environment *env.Environment) {
@@ -92,8 +94,14 @@ func (i *Interpreter) evaluate(expr stm.Expression) any {
 }
 
 func (i *Interpreter) VisitFunctionStatement(stmt stm.FunctionStm) any {
+	index, ok := i.locals[stmt.Name]
 	function := NewLoxFunction(stmt, i.environment)
-	i.environment.Define(stmt.Name.Lexeme, function)
+
+	if ok {
+		i.LocalVariables[index] = function
+	} else {
+		i.globals.Define(stmt.Name.Lexeme, function)
+	}
 
 	return nil
 }
@@ -159,11 +167,16 @@ func (i *Interpreter) VisitBreakStatement(stmt stm.BreakStmt) any {
 	return nil
 }
 
-func (i *Interpreter) VisitVarStatement(stmt stm.VarStmt) any {
+func (i *Interpreter) VisitVarStatement(stmt *stm.VarStmt) any {
 	var value any = nil
 
 	if stmt.Initializer != nil {
 		value = i.evaluate(stmt.Initializer)
+	}
+
+	if stmt.Local {
+		index := i.locals[stmt.Name]
+		i.LocalVariables[index] = value
 	}
 
 	i.environment.Define(stmt.Name.Lexeme, value)
@@ -172,7 +185,6 @@ func (i *Interpreter) VisitVarStatement(stmt stm.VarStmt) any {
 }
 
 func (i *Interpreter) VisitErrorStatement(stmt stm.ErrorStmt) any {
-	fmt.Println(stmt.Message)
 	return nil
 }
 
@@ -322,16 +334,16 @@ func (i *Interpreter) VisitCallExpr(expr stm.Call) any {
 		panic(errorMsg)
 	}
 
-	return function.Call(*i, arguments)
+	return function.Call(i, arguments)
 
 }
 
 func (i *Interpreter) VisitAssignExpr(expr *stm.Assign) any {
 	value := i.evaluate(expr.Value)
-	depth, ok := i.locals[expr]
+	index, ok := i.locals[expr.Name]
 
 	if ok {
-		i.environment.AssignAt(depth, expr.Name, value)
+		i.LocalVariables[index] = value
 	} else {
 		i.globals.Assign(expr.Name, value)
 	}
@@ -353,10 +365,10 @@ func (i *Interpreter) isTruthy(value any) bool {
 }
 
 func (i *Interpreter) lookupVariable(name tokens.Token, expr stm.Expression) any {
-	depth, ok := i.locals[expr]
+	index, ok := i.locals[name]
 
 	if ok {
-		return i.environment.GetAt(depth, name.Lexeme)
+		return i.LocalVariables[index]
 	}
 	return i.globals.Get(name)
 }

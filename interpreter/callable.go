@@ -2,17 +2,17 @@ package interpreter
 
 type NativeFunctionCallable struct {
 	arityFn func() int
-	callFn  func(interpreter Interpreter, args []any) any
+	callFn  func(interpreter *Interpreter, args []any) any
 }
 
-func NewNativeFnCallable(arityFn func() int, callFn func(interpreter Interpreter, args []any) any) *NativeFunctionCallable {
+func NewNativeFnCallable(arityFn func() int, callFn func(interpreter *Interpreter, args []any) any) *NativeFunctionCallable {
 	return &NativeFunctionCallable{
 		arityFn: arityFn,
 		callFn:  callFn,
 	}
 }
 
-func (f NativeFunctionCallable) Call(interpreter Interpreter, args []any) any {
+func (f NativeFunctionCallable) Call(interpreter *Interpreter, args []any) any {
 	return f.callFn(interpreter, args)
 }
 
@@ -21,6 +21,6 @@ func (f NativeFunctionCallable) Arity() int {
 }
 
 type Callable interface {
-	Call(interpreter Interpreter, args []any) any
+	Call(interpreter *Interpreter, args []any) any
 	Arity() int
 }

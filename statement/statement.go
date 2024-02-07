@@ -7,7 +7,7 @@ import (
 type StmVisitor[T any] interface {
 	VisitExprStatement(stmt ExpressionStmt) T
 	VisitPrintStatement(stmt PrintStmt) T
-	VisitVarStatement(stmt VarStmt) T
+	VisitVarStatement(stmt *VarStmt) T
 	VisitErrorStatement(stmt ErrorStmt) T
 	VisitBlockStatement(stmt BlockStmt) T
 	VisitIfStatement(stmt IfStmt) T
@@ -86,16 +86,18 @@ func (w WhileStmt) Accept(visitor StmVisitor[any]) any {
 type VarStmt struct {
 	Name        tokens.Token
 	Initializer Expression
+	Local       bool
 }
 
 func NewVar(name tokens.Token, expr Expression) *VarStmt {
 	return &VarStmt{
 		Name:        name,
 		Initializer: expr,
+		Local:       false,
 	}
 }
 
-func (v VarStmt) Accept(visitior StmVisitor[any]) any {
+func (v *VarStmt) Accept(visitior StmVisitor[any]) any {
 	return visitior.VisitVarStatement(v)
 }
 

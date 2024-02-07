@@ -21,7 +21,7 @@ func main() {
 	scanner := scanner.NewScanner(errorLogger)
 	parses := parser.NewParser(errorLogger)
 	interpreter := interpreter.NewInterpreter(errorLogger)
-	resolver := resolver.NewResolver(*interpreter, errorLogger)
+	resolver := resolver.NewResolver(interpreter, errorLogger)
 
 	lox.SetComponents(scanner, parses, interpreter, resolver)
 

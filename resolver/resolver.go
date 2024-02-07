@@ -15,18 +15,25 @@ const (
 	ANONYMOUS_FUNCTION
 )
 
-type Resolver struct {
-	Interpreter     interpreter.Interpreter
-	Scopes          []map[string]bool
-	ErrorLogger     interfaces.ErrorLogger
-	currentFunction FunctionType
+type LocalVariable struct {
+	index   int
+	defined bool
 }
 
-func NewResolver(interpreter interpreter.Interpreter, errorLogger interfaces.ErrorLogger) *Resolver {
+type Resolver struct {
+	Interpreter     *interpreter.Interpreter
+	Scopes          []map[string]*LocalVariable
+	ErrorLogger     interfaces.ErrorLogger
+	currentFunction FunctionType
+	localIndex      int
+}
+
+func NewResolver(interpreter *interpreter.Interpreter, errorLogger interfaces.ErrorLogger) *Resolver {
 	return &Resolver{
 		Interpreter:     interpreter,
 		ErrorLogger:     errorLogger,
 		currentFunction: NONE,
+		localIndex:      0,
 	}
 }
 
@@ -38,10 +45,10 @@ func (r *Resolver) ResolveBlock(statements []stm.Statement) {
 
 func (r *Resolver) resolveLocal(expr stm.Expression, name tokens.Token) {
 	for i := len(r.Scopes) - 1; i >= 0; i-- {
-		_, ok := r.Scopes[i][name.Lexeme]
+		variable, ok := r.Scopes[i][name.Lexeme]
 
 		if ok {
-			r.Interpreter.Resolve(expr, len(r.Scopes)-1-i)
+			r.Interpreter.Resolve(name, len(r.Scopes)-1-i, variable.index)
 			return
 		}
 
@@ -65,6 +72,8 @@ func (r *Resolver) resolveFunction(function stm.FunctionStm, funcType FunctionTy
 	for _, token := range function.Params {
 		r.declare(token)
 		r.define(token)
+		r.Interpreter.Resolve(token, 0, r.localIndex-1)
+		r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
 	}
 
 	r.ResolveBlock(function.Body)
@@ -92,7 +101,7 @@ func (r *Resolver) resolveAnonymousFunction(function stm.AnonymousFunction) {
 }
 
 func (r *Resolver) beginScope() {
-	r.Scopes = append(r.Scopes, make(map[string]bool))
+	r.Scopes = append(r.Scopes, make(map[string]*LocalVariable))
 }
 
 func (r *Resolver) endScope() {
@@ -111,7 +120,12 @@ func (r *Resolver) declare(name tokens.Token) {
 		r.ErrorLogger.ErrorForToken(name, "Already variable with this name in this scope.")
 	}
 
-	scope[name.Lexeme] = false
+	scope[name.Lexeme] = &LocalVariable{
+		index:   r.localIndex,
+		defined: false,
+	}
+
+	r.localIndex++
 
 }
 func (r *Resolver) define(name tokens.Token) {
@@ -119,7 +133,10 @@ func (r *Resolver) define(name tokens.Token) {
 		return
 	}
 	scope := r.Scopes[len(r.Scopes)-1]
-	scope[name.Lexeme] = true
+	scope[name.Lexeme].defined = true
+
+	r.Interpreter.Resolve(name, 0, scope[name.Lexeme].index)
+	r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
 }
 
 // VisitAnonymousFuncExpr implements stm.ExprVisitor.
@@ -200,8 +217,8 @@ func (r *Resolver) VisitUnaryExpr(expr stm.Unary) any {
 // VisitVariableExpr implements stm.ExprVisitor.
 func (r *Resolver) VisitVariableExpr(expr *stm.Variable) any {
 	if len(r.Scopes) != 0 {
-		value, ok := r.Scopes[len(r.Scopes)-1][expr.Name.Lexeme]
-		if ok && !value {
+		variable, ok := r.Scopes[len(r.Scopes)-1][expr.Name.Lexeme]
+		if ok && !variable.defined {
 			r.ErrorLogger.ErrorForToken(expr.Name, "Can't read local variable in its own initializer.")
 		}
 	}
@@ -278,7 +295,7 @@ func (r *Resolver) VisitReturnStatement(stmt stm.ReturnStmt) any {
 }
 
 // VisitVarStatement implements stm.StmVisitor.
-func (r *Resolver) VisitVarStatement(stmt stm.VarStmt) any {
+func (r *Resolver) VisitVarStatement(stmt *stm.VarStmt) any {
 	r.declare(stmt.Name)
 
 	if stmt.Initializer != nil {
@@ -286,6 +303,10 @@ func (r *Resolver) VisitVarStatement(stmt stm.VarStmt) any {
 	}
 
 	r.define(stmt.Name)
+
+	if len(r.Scopes) > 0 {
+		stmt.Local = true
+	}
 
 	return nil
 }

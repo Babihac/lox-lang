@@ -1,27 +1,20 @@
-fun je_to_tajnej(first_name) {
-    return "fuckin tajnej";
-  }
- 
- fun getTajnej() {
-  print "haha";
-  return 666;
- }
+  var a = "global";
+  {
 
- print getTajnej() + 1;
+      var x = fun(a) {
+      print "anon";
+      return "function";
+};
 
- var x = "sss";
-
- 
- fun lala(fn) {
-  return "this is fun";
- }
-
- fun thrice(fn) {
-       for (var i = 1; i <= 3; i = i + 1) {
-fn(i); }
+      print x(333);
+     
+    fun showA() {
+      print a;
+}
+    showA();
+    var a = "block";
+    print a;
+    showA();
 }
 
- thrice(fun (a) {
-      print a;
-});
 

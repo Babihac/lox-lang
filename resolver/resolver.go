@@ -91,8 +91,6 @@ func (r *Resolver) resolveAnonymousFunction(function stm.AnonymousFunction) {
 	for _, token := range function.Params {
 		r.declare(token)
 		r.define(token)
-		r.Interpreter.Resolve(token, 0, r.localIndex-1)
-		r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
 	}
 
 	r.ResolveBlock(function.Body)
@@ -137,9 +135,8 @@ func (r *Resolver) define(name tokens.Token) {
 	scope := r.Scopes[len(r.Scopes)-1]
 	scope[name.Lexeme].defined = true
 
-	// for key, value := range scope {
-	// 	fmt.Printf("%s: index: %d\n", key, value.index)
-	// }
+	r.Interpreter.Resolve(name, 0, scope[name.Lexeme].index)
+	r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
 }
 
 // VisitAnonymousFuncExpr implements stm.ExprVisitor.
@@ -257,6 +254,8 @@ func (r *Resolver) VisitExprStatement(stmt stm.ExpressionStmt) any {
 
 // VisitFunctionStatement implements stm.StmVisitor.
 func (r *Resolver) VisitFunctionStatement(stmt stm.FunctionStm) any {
+	r.declare(stmt.Name)
+	r.define(stmt.Name)
 
 	r.resolveFunction(stmt, FUNCTION)
 	return nil
@@ -297,11 +296,7 @@ func (r *Resolver) VisitReturnStatement(stmt stm.ReturnStmt) any {
 
 // VisitVarStatement implements stm.StmVisitor.
 func (r *Resolver) VisitVarStatement(stmt *stm.VarStmt) any {
-	r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
 	r.declare(stmt.Name)
-
-	r.Interpreter.Resolve(stmt.Name, 0, r.localIndex-1)
-	r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
 
 	if stmt.Initializer != nil {
 		r.resolveExpr(stmt.Initializer)

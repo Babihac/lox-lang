@@ -94,9 +94,14 @@ func (i *Interpreter) evaluate(expr stm.Expression) any {
 }
 
 func (i *Interpreter) VisitFunctionStatement(stmt stm.FunctionStm) any {
+	index, ok := i.locals[stmt.Name]
 	function := NewLoxFunction(stmt, i.environment)
 
-	i.globals.Define(stmt.Name.Lexeme, function)
+	if ok {
+		i.LocalVariables[index] = function
+	} else {
+		i.globals.Define(stmt.Name.Lexeme, function)
+	}
 
 	return nil
 }

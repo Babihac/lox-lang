@@ -53,7 +53,7 @@ func (i *Interpreter) InterpretRepl(statements []stm.Statement) {
 	defer i.afterPanic()
 
 	for _, stmt := range statements {
-		if exprStmt, ok := stmt.(stm.ExpressionStmt); ok {
+		if exprStmt, ok := stmt.(*stm.ExpressionStmt); ok {
 			value := i.evaluate(exprStmt.Expression)
 			fmt.Println(value)
 		} else {
@@ -93,9 +93,9 @@ func (i *Interpreter) evaluate(expr stm.Expression) any {
 	return expr.Accept(i)
 }
 
-func (i *Interpreter) VisitFunctionStatement(stmt stm.FunctionStm) any {
+func (i *Interpreter) VisitFunctionStatement(stmt *stm.FunctionStm) any {
 	index, ok := i.locals[stmt.Name]
-	function := NewLoxFunction(stmt, i.environment)
+	function := NewLoxFunction(*stmt, i.environment)
 
 	if ok {
 		i.LocalVariables[index] = function
@@ -106,7 +106,7 @@ func (i *Interpreter) VisitFunctionStatement(stmt stm.FunctionStm) any {
 	return nil
 }
 
-func (i *Interpreter) VisitReturnStatement(stmt stm.ReturnStmt) any {
+func (i *Interpreter) VisitReturnStatement(stmt *stm.ReturnStmt) any {
 	var value any = nil
 
 	if stmt.Value != nil {
@@ -116,25 +116,25 @@ func (i *Interpreter) VisitReturnStatement(stmt stm.ReturnStmt) any {
 	panic(value)
 }
 
-func (i *Interpreter) VisitBlockStatement(stmt stm.BlockStmt) any {
+func (i *Interpreter) VisitBlockStatement(stmt *stm.BlockStmt) any {
 	i.executeBlock(stmt.Statements, env.NewEnvironment(i.environment))
 	return nil
 }
 
 // VisitExprStatement implements stm.Visitor.
-func (i *Interpreter) VisitExprStatement(stmt stm.ExpressionStmt) any {
+func (i *Interpreter) VisitExprStatement(stmt *stm.ExpressionStmt) any {
 	i.evaluate(stmt.Expression)
 	return nil
 }
 
 // VisitPrintStatement implements stm.Visitor.
-func (i *Interpreter) VisitPrintStatement(stmt stm.PrintStmt) any {
+func (i *Interpreter) VisitPrintStatement(stmt *stm.PrintStmt) any {
 	value := i.evaluate(stmt.Expression)
 	fmt.Println(i.stringify(value))
 	return nil
 }
 
-func (i *Interpreter) VisitIfStatement(stmt stm.IfStmt) any {
+func (i *Interpreter) VisitIfStatement(stmt *stm.IfStmt) any {
 	if i.isTruthy(i.evaluate(stmt.Condition)) {
 		i.execute(stmt.ThenBranch)
 	} else if stmt.ElseBranch != nil {
@@ -143,8 +143,8 @@ func (i *Interpreter) VisitIfStatement(stmt stm.IfStmt) any {
 	return nil
 }
 
-func (i *Interpreter) VisitWhileStatement(stmt stm.WhileStmt) any {
-	i.nearestEnclosingLoop = append(i.nearestEnclosingLoop, &stmt)
+func (i *Interpreter) VisitWhileStatement(stmt *stm.WhileStmt) any {
+	i.nearestEnclosingLoop = append(i.nearestEnclosingLoop, stmt)
 
 	for {
 		if !i.isTruthy(i.evaluate(stmt.Condition)) {
@@ -157,7 +157,7 @@ func (i *Interpreter) VisitWhileStatement(stmt stm.WhileStmt) any {
 	return nil
 }
 
-func (i *Interpreter) VisitBreakStatement(stmt stm.BreakStmt) any {
+func (i *Interpreter) VisitBreakStatement(stmt *stm.BreakStmt) any {
 	if len(i.nearestEnclosingLoop) == 0 {
 		panic("Break not in loop")
 	}
@@ -184,18 +184,18 @@ func (i *Interpreter) VisitVarStatement(stmt *stm.VarStmt) any {
 	return nil
 }
 
-func (i *Interpreter) VisitErrorStatement(stmt stm.ErrorStmt) any {
+func (i *Interpreter) VisitErrorStatement(stmt *stm.ErrorStmt) any {
 	return nil
 }
 
-func (i *Interpreter) VisitAnonymousFuncExpr(expr stm.AnonymousFunction) any {
-	function := NewAnonymousFunction(expr, i.environment)
+func (i *Interpreter) VisitAnonymousFuncExpr(expr *stm.AnonymousFunction) any {
+	function := NewAnonymousFunction(*expr, i.environment)
 
 	return function
 }
 
 // VisitBinaryExpr implements stm.Visitor.
-func (i *Interpreter) VisitBinaryExpr(expr stm.Binary) any {
+func (i *Interpreter) VisitBinaryExpr(expr *stm.Binary) any {
 	left := i.evaluate(expr.Left)
 	right := i.evaluate(expr.Right)
 
@@ -254,7 +254,7 @@ func (i *Interpreter) VisitBinaryExpr(expr stm.Binary) any {
 }
 
 // VisitErrorExpr implements stm.Visitor.
-func (i *Interpreter) VisitErrorExpr(expr stm.Error) any {
+func (i *Interpreter) VisitErrorExpr(expr *stm.Error) any {
 	return expr.Value
 }
 
@@ -263,16 +263,16 @@ func (i *Interpreter) VisitVariableExpr(expr *stm.Variable) any {
 }
 
 // VisitGroupingExpr implements stm.Visitor.
-func (i *Interpreter) VisitGroupingExpr(expr stm.Grouping) any {
+func (i *Interpreter) VisitGroupingExpr(expr *stm.Grouping) any {
 	return i.evaluate(expr.Expression)
 }
 
 // VisitLiteralExpr implements stm.Visitor.
-func (i *Interpreter) VisitLiteralExpr(expr stm.Literal) any {
+func (i *Interpreter) VisitLiteralExpr(expr *stm.Literal) any {
 	return expr.Value
 }
 
-func (i *Interpreter) VisitLogicalExpr(expr stm.Logical) any {
+func (i *Interpreter) VisitLogicalExpr(expr *stm.Logical) any {
 	left := i.evaluate(expr.Left)
 
 	if expr.Operator.TokenType == tokens.OR {
@@ -289,7 +289,7 @@ func (i *Interpreter) VisitLogicalExpr(expr stm.Logical) any {
 }
 
 // VisitTernaryExpr implements stm.Visitor.
-func (i *Interpreter) VisitTernaryExpr(expr stm.Ternary) any {
+func (i *Interpreter) VisitTernaryExpr(expr *stm.Ternary) any {
 	condition := i.evaluate(expr.Condition)
 
 	i.checkBoolOperands(expr.Operator, condition)
@@ -301,7 +301,7 @@ func (i *Interpreter) VisitTernaryExpr(expr stm.Ternary) any {
 }
 
 // VisitUnaryExpr implements stm.Visitor.
-func (i *Interpreter) VisitUnaryExpr(expr stm.Unary) any {
+func (i *Interpreter) VisitUnaryExpr(expr *stm.Unary) any {
 	right := i.evaluate(expr.Right)
 
 	switch expr.Operator.TokenType {
@@ -315,7 +315,7 @@ func (i *Interpreter) VisitUnaryExpr(expr stm.Unary) any {
 	return nil
 }
 
-func (i *Interpreter) VisitCallExpr(expr stm.Call) any {
+func (i *Interpreter) VisitCallExpr(expr *stm.Call) any {
 	callee := i.evaluate(expr.Callee)
 	arguments := make([]any, 0)
 

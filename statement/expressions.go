@@ -5,17 +5,17 @@ import (
 )
 
 type ExprVisitor[T any] interface {
-	VisitBinaryExpr(expr Binary) T
-	VisitGroupingExpr(expr Grouping) T
-	VisitLiteralExpr(expr Literal) T
-	VisitUnaryExpr(expr Unary) T
-	VisitErrorExpr(expr Error) T
-	VisitTernaryExpr(expr Ternary) T
+	VisitBinaryExpr(expr *Binary) T
+	VisitGroupingExpr(expr *Grouping) T
+	VisitLiteralExpr(expr *Literal) T
+	VisitUnaryExpr(expr *Unary) T
+	VisitErrorExpr(expr *Error) T
+	VisitTernaryExpr(expr *Ternary) T
 	VisitVariableExpr(expr *Variable) T
 	VisitAssignExpr(expr *Assign) T
-	VisitLogicalExpr(expr Logical) T
-	VisitCallExpr(expr Call) T
-	VisitAnonymousFuncExpr(expr AnonymousFunction) T
+	VisitLogicalExpr(expr *Logical) T
+	VisitCallExpr(expr *Call) T
+	VisitAnonymousFuncExpr(expr *AnonymousFunction) T
 }
 
 type Expression interface {
@@ -32,7 +32,7 @@ func NewGrouping(expr Expression) *Grouping {
 	}
 }
 
-func (g Grouping) Accept(visitor ExprVisitor[any]) any {
+func (g *Grouping) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitGroupingExpr(g)
 }
 
@@ -66,7 +66,7 @@ func NewBinary(left Expression, operator tokens.Token, right Expression) *Binary
 	}
 }
 
-func (b Binary) Accept(visitor ExprVisitor[any]) any {
+func (b *Binary) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitBinaryExpr(b)
 }
 
@@ -80,7 +80,7 @@ func NewLiteral(value any) *Literal {
 	}
 }
 
-func (l Literal) Accept(visitor ExprVisitor[any]) any {
+func (l *Literal) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitLiteralExpr(l)
 }
 
@@ -98,7 +98,7 @@ func NewLogical(left Expression, operator tokens.Token, right Expression) *Logic
 	}
 }
 
-func (l Logical) Accept(visitor ExprVisitor[any]) any {
+func (l *Logical) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitLogicalExpr(l)
 }
 
@@ -114,7 +114,7 @@ func NewUnary(operator tokens.Token, right Expression) *Unary {
 	}
 }
 
-func (u Unary) Accept(visitor ExprVisitor[any]) any {
+func (u *Unary) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitUnaryExpr(u)
 }
 
@@ -126,7 +126,7 @@ func NewErrorExpr(value string) *Error {
 	return &Error{Value: value}
 }
 
-func (e Error) Accept(visitor ExprVisitor[any]) any {
+func (e *Error) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitErrorExpr(e)
 }
 
@@ -146,7 +146,7 @@ func NewTernary(operator tokens.Token, condition Expression, consequent Expressi
 	}
 }
 
-func (t Ternary) Accept(visitor ExprVisitor[any]) any {
+func (t *Ternary) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitTernaryExpr(t)
 }
 
@@ -178,7 +178,7 @@ func NewCall(callee Expression, paren tokens.Token, arguments []Expression) *Cal
 	}
 }
 
-func (c Call) Accept(visitor ExprVisitor[any]) any {
+func (c *Call) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitCallExpr(c)
 }
 
@@ -194,6 +194,6 @@ func NewAnonymousFunction(params []tokens.Token, body []Statement) *AnonymousFun
 	}
 }
 
-func (af AnonymousFunction) Accept(visitor ExprVisitor[any]) any {
+func (af *AnonymousFunction) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitAnonymousFuncExpr(af)
 }

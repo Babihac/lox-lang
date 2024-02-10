@@ -173,16 +173,16 @@ func (p *Parser) forStatement() stm.Statement {
 
 }
 
-func (p *Parser) whileStatement() stm.WhileStmt {
+func (p *Parser) whileStatement() *stm.WhileStmt {
 	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'while'.")
 	condition := p.expression()
 	p.consume(tokens.RIGHT_PAREN, "Expect ')' after condition.")
 	body := p.statement()
 
-	return *stm.NewWhile(condition, body)
+	return stm.NewWhile(condition, body)
 }
 
-func (p *Parser) ifStatement() stm.IfStmt {
+func (p *Parser) ifStatement() *stm.IfStmt {
 	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'if'.")
 	condition := p.expression()
 	p.consume(tokens.RIGHT_PAREN, "Expect ')' after if condition.")
@@ -194,13 +194,13 @@ func (p *Parser) ifStatement() stm.IfStmt {
 		elseBranch = p.statement()
 	}
 
-	return *stm.NewIf(condition, thenBranch, elseBranch)
+	return stm.NewIf(condition, thenBranch, elseBranch)
 }
 
-func (p *Parser) breakStatement() stm.BreakStmt {
+func (p *Parser) breakStatement() *stm.BreakStmt {
 	p.consume(tokens.SEMICOLON, "Expect ';' after break.\n")
 
-	return *stm.NewBreak()
+	return stm.NewBreak()
 }
 
 func (p *Parser) functionStatement(kind string) stm.Statement {
@@ -213,10 +213,10 @@ func (p *Parser) functionStatement(kind string) stm.Statement {
 
 	functionComponents := p.parseFunctionComponents(kind)
 
-	return *stm.NewFunction(*name, functionComponents.parameters, functionComponents.body)
+	return stm.NewFunction(*name, functionComponents.parameters, functionComponents.body)
 }
 
-func (p *Parser) returnStatement() stm.ReturnStmt {
+func (p *Parser) returnStatement() *stm.ReturnStmt {
 	keyword := p.previous()
 	var value stm.Expression = nil
 
@@ -226,20 +226,20 @@ func (p *Parser) returnStatement() stm.ReturnStmt {
 
 	p.consume(tokens.SEMICOLON, "Expect ';' after return value.")
 
-	return *stm.NewReturn(keyword, value)
+	return stm.NewReturn(keyword, value)
 }
 
-func (p *Parser) printStatement() stm.PrintStmt {
+func (p *Parser) printStatement() *stm.PrintStmt {
 	value := p.expression()
 	p.consume(tokens.SEMICOLON, "Expect ';' after value of print.\n")
-	return *stm.NewPrint(value)
+	return stm.NewPrint(value)
 }
 
-func (p *Parser) expressionStatement() stm.ExpressionStmt {
+func (p *Parser) expressionStatement() *stm.ExpressionStmt {
 	expr := p.expression()
 	p.consume(tokens.SEMICOLON, "Expect ';' after value.\n")
 
-	return *stm.NewExpression(expr)
+	return stm.NewExpression(expr)
 
 }
 
@@ -430,7 +430,7 @@ func (p *Parser) anonymousFunction() stm.Expression {
 
 		functionComponents := p.parseFunctionComponents("anonymous function")
 
-		return *stm.NewAnonymousFunction(functionComponents.parameters, functionComponents.body)
+		return stm.NewAnonymousFunction(functionComponents.parameters, functionComponents.body)
 	}
 
 	return expr

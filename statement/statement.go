@@ -5,16 +5,16 @@ import (
 )
 
 type StmVisitor[T any] interface {
-	VisitExprStatement(stmt ExpressionStmt) T
-	VisitPrintStatement(stmt PrintStmt) T
+	VisitExprStatement(stmt *ExpressionStmt) T
+	VisitPrintStatement(stmt *PrintStmt) T
 	VisitVarStatement(stmt *VarStmt) T
-	VisitErrorStatement(stmt ErrorStmt) T
-	VisitBlockStatement(stmt BlockStmt) T
-	VisitIfStatement(stmt IfStmt) T
-	VisitWhileStatement(stmt WhileStmt) T
-	VisitBreakStatement(stmt BreakStmt) T
-	VisitFunctionStatement(stmt FunctionStm) T
-	VisitReturnStatement(stmt ReturnStmt) T
+	VisitErrorStatement(stmt *ErrorStmt) T
+	VisitBlockStatement(stmt *BlockStmt) T
+	VisitIfStatement(stmt *IfStmt) T
+	VisitWhileStatement(stmt *WhileStmt) T
+	VisitBreakStatement(stmt *BreakStmt) T
+	VisitFunctionStatement(stmt *FunctionStm) T
+	VisitReturnStatement(stmt *ReturnStmt) T
 }
 
 type Statement interface {
@@ -31,7 +31,7 @@ func NewExpression(expr Expression) *ExpressionStmt {
 	}
 }
 
-func (e ExpressionStmt) Accept(visitor StmVisitor[any]) any {
+func (e *ExpressionStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitExprStatement(e)
 }
 
@@ -49,7 +49,7 @@ func NewIf(condition Expression, thenStm, elseStm Statement) *IfStmt {
 	}
 }
 
-func (i IfStmt) Accept(visitor StmVisitor[any]) any {
+func (i *IfStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitIfStatement(i)
 }
 
@@ -63,7 +63,7 @@ func NewPrint(expr Expression) *PrintStmt {
 	}
 }
 
-func (p PrintStmt) Accept(visitor StmVisitor[any]) any {
+func (p *PrintStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitPrintStatement(p)
 }
 
@@ -79,7 +79,7 @@ func NewWhile(condition Expression, body Statement) *WhileStmt {
 	}
 }
 
-func (w WhileStmt) Accept(visitor StmVisitor[any]) any {
+func (w *WhileStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitWhileStatement(w)
 }
 
@@ -111,7 +111,7 @@ func NewBlock(statements []Statement) *BlockStmt {
 	}
 }
 
-func (b BlockStmt) Accept(visitor StmVisitor[any]) any {
+func (b *BlockStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitBlockStatement(b)
 }
 
@@ -122,7 +122,7 @@ func NewBreak() *BreakStmt {
 	return &BreakStmt{}
 }
 
-func (b BreakStmt) Accept(visitor StmVisitor[any]) any {
+func (b *BreakStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitBreakStatement(b)
 }
 
@@ -140,7 +140,7 @@ func NewFunction(name tokens.Token, params []tokens.Token, body []Statement) *Fu
 	}
 }
 
-func (f FunctionStm) Accept(visitor StmVisitor[any]) any {
+func (f *FunctionStm) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitFunctionStatement(f)
 }
 
@@ -154,7 +154,7 @@ func NewError(msg string) *ErrorStmt {
 	}
 }
 
-func (e ErrorStmt) Accept(visitor StmVisitor[any]) any {
+func (e *ErrorStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitErrorStatement(e)
 }
 
@@ -170,6 +170,22 @@ func NewReturn(keyword tokens.Token, value Expression) *ReturnStmt {
 	}
 }
 
-func (r ReturnStmt) Accept(visitor StmVisitor[any]) any {
+func (r *ReturnStmt) Accept(visitor StmVisitor[any]) any {
 	return visitor.VisitReturnStatement(r)
+}
+
+type ClassStmt struct {
+	Name    tokens.Token
+	Methods []FunctionStm
+}
+
+func NewClass(name tokens.Token, methods []FunctionStm) *ClassStmt {
+	return &ClassStmt{
+		Name:    name,
+		Methods: methods,
+	}
+}
+
+func (c ClassStmt) Accept(visitor StmVisitor[any]) any {
+	return nil
 }

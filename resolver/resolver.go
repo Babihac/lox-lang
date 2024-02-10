@@ -63,7 +63,7 @@ func (r *Resolver) resolveExpr(expression stm.Expression) {
 	expression.Accept(r)
 }
 
-func (r *Resolver) resolveFunction(function stm.FunctionStm, funcType FunctionType) {
+func (r *Resolver) resolveFunction(function *stm.FunctionStm, funcType FunctionType) {
 	enclosingFunc := r.currentFunction
 	r.currentFunction = funcType
 
@@ -82,7 +82,7 @@ func (r *Resolver) resolveFunction(function stm.FunctionStm, funcType FunctionTy
 	r.currentFunction = enclosingFunc
 }
 
-func (r *Resolver) resolveAnonymousFunction(function stm.AnonymousFunction) {
+func (r *Resolver) resolveAnonymousFunction(function *stm.AnonymousFunction) {
 	enclosingFunc := r.currentFunction
 	r.currentFunction = ANONYMOUS_FUNCTION
 
@@ -140,7 +140,7 @@ func (r *Resolver) define(name tokens.Token) {
 }
 
 // VisitAnonymousFuncExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitAnonymousFuncExpr(expr stm.AnonymousFunction) any {
+func (r *Resolver) VisitAnonymousFuncExpr(expr *stm.AnonymousFunction) any {
 	r.resolveAnonymousFunction(expr)
 
 	return nil
@@ -155,7 +155,7 @@ func (r *Resolver) VisitAssignExpr(expr *stm.Assign) any {
 }
 
 // VisitBinaryExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitBinaryExpr(expr stm.Binary) any {
+func (r *Resolver) VisitBinaryExpr(expr *stm.Binary) any {
 	r.resolveExpr(expr.Left)
 	r.resolveExpr(expr.Right)
 
@@ -163,7 +163,7 @@ func (r *Resolver) VisitBinaryExpr(expr stm.Binary) any {
 }
 
 // VisitCallExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitCallExpr(expr stm.Call) any {
+func (r *Resolver) VisitCallExpr(expr *stm.Call) any {
 	r.resolveExpr(expr.Callee)
 
 	for _, arg := range expr.Arguments {
@@ -174,24 +174,24 @@ func (r *Resolver) VisitCallExpr(expr stm.Call) any {
 }
 
 // VisitErrorExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitErrorExpr(expr stm.Error) any {
+func (r *Resolver) VisitErrorExpr(expr *stm.Error) any {
 	return nil
 }
 
 // VisitGroupingExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitGroupingExpr(expr stm.Grouping) any {
+func (r *Resolver) VisitGroupingExpr(expr *stm.Grouping) any {
 	r.resolveExpr(expr.Expression)
 
 	return nil
 }
 
 // VisitLiteralExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitLiteralExpr(expr stm.Literal) any {
+func (r *Resolver) VisitLiteralExpr(expr *stm.Literal) any {
 	return nil
 }
 
 // VisitLogicalExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitLogicalExpr(expr stm.Logical) any {
+func (r *Resolver) VisitLogicalExpr(expr *stm.Logical) any {
 	r.resolveExpr(expr.Left)
 	r.resolveExpr(expr.Right)
 
@@ -199,7 +199,7 @@ func (r *Resolver) VisitLogicalExpr(expr stm.Logical) any {
 }
 
 // VisitTernaryExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitTernaryExpr(expr stm.Ternary) any {
+func (r *Resolver) VisitTernaryExpr(expr *stm.Ternary) any {
 	r.resolveExpr(expr.Condition)
 	r.resolveExpr(expr.Consequent)
 	r.resolveExpr(expr.Alternative)
@@ -208,7 +208,7 @@ func (r *Resolver) VisitTernaryExpr(expr stm.Ternary) any {
 }
 
 // VisitUnaryExpr implements stm.ExprVisitor.
-func (r *Resolver) VisitUnaryExpr(expr stm.Unary) any {
+func (r *Resolver) VisitUnaryExpr(expr *stm.Unary) any {
 	r.resolveExpr(expr.Right)
 
 	return nil
@@ -228,7 +228,7 @@ func (r *Resolver) VisitVariableExpr(expr *stm.Variable) any {
 }
 
 // VisitBlockStatement implements stm.StmVisitor.
-func (r *Resolver) VisitBlockStatement(stmt stm.BlockStmt) any {
+func (r *Resolver) VisitBlockStatement(stmt *stm.BlockStmt) any {
 	r.beginScope()
 	r.ResolveBlock(stmt.Statements)
 	r.endScope()
@@ -237,23 +237,23 @@ func (r *Resolver) VisitBlockStatement(stmt stm.BlockStmt) any {
 }
 
 // VisitBreakStatement implements stm.StmVisitor.
-func (r *Resolver) VisitBreakStatement(stmt stm.BreakStmt) any {
+func (r *Resolver) VisitBreakStatement(stmt *stm.BreakStmt) any {
 	return nil
 }
 
 // VisianyErrorSanyatement implements stm.StmVisitor.
-func (r *Resolver) VisitErrorStatement(stmt stm.ErrorStmt) any {
+func (r *Resolver) VisitErrorStatement(stmt *stm.ErrorStmt) any {
 	return nil
 }
 
 // VisitExprStatement implements stm.StmVisitor.
-func (r *Resolver) VisitExprStatement(stmt stm.ExpressionStmt) any {
+func (r *Resolver) VisitExprStatement(stmt *stm.ExpressionStmt) any {
 	r.resolveExpr(stmt.Expression)
 	return nil
 }
 
 // VisitFunctionStatement implements stm.StmVisitor.
-func (r *Resolver) VisitFunctionStatement(stmt stm.FunctionStm) any {
+func (r *Resolver) VisitFunctionStatement(stmt *stm.FunctionStm) any {
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
 
@@ -262,7 +262,7 @@ func (r *Resolver) VisitFunctionStatement(stmt stm.FunctionStm) any {
 }
 
 // VisitIfStatement implements stm.StmVisitor.
-func (r *Resolver) VisitIfStatement(stmt stm.IfStmt) any {
+func (r *Resolver) VisitIfStatement(stmt *stm.IfStmt) any {
 	r.resolveExpr(stmt.Condition)
 	r.resolveStm(stmt.ThenBranch)
 
@@ -274,14 +274,14 @@ func (r *Resolver) VisitIfStatement(stmt stm.IfStmt) any {
 }
 
 // VisitPrintStatement implements stm.StmVisitor.
-func (r *Resolver) VisitPrintStatement(stmt stm.PrintStmt) any {
+func (r *Resolver) VisitPrintStatement(stmt *stm.PrintStmt) any {
 	r.resolveExpr(stmt.Expression)
 
 	return nil
 }
 
 // VisitReturnStatement implements stm.StmVisitor.
-func (r *Resolver) VisitReturnStatement(stmt stm.ReturnStmt) any {
+func (r *Resolver) VisitReturnStatement(stmt *stm.ReturnStmt) any {
 
 	if r.currentFunction == NONE {
 		r.ErrorLogger.ErrorForToken(stmt.Keyword, "Can't return from top-level code.")
@@ -312,7 +312,7 @@ func (r *Resolver) VisitVarStatement(stmt *stm.VarStmt) any {
 }
 
 // VisitWhileStatement implements stm.StmVisitor.
-func (r *Resolver) VisitWhileStatement(stmt stm.WhileStmt) any {
+func (r *Resolver) VisitWhileStatement(stmt *stm.WhileStmt) any {
 	r.resolveExpr(stmt.Condition)
 	r.resolveStm(stmt.Body)
 

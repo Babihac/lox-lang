@@ -15,6 +15,9 @@ type ExprVisitor[T any] interface {
 	VisitAssignExpr(expr *Assign) T
 	VisitLogicalExpr(expr *Logical) T
 	VisitCallExpr(expr *Call) T
+	VisitGetExpr(expr *Get) T
+	VisitSetExpr(expr *Set) T
+	VisitThisExpr(expr *This) T
 	VisitAnonymousFuncExpr(expr *AnonymousFunction) T
 }
 
@@ -180,6 +183,54 @@ func NewCall(callee Expression, paren tokens.Token, arguments []Expression) *Cal
 
 func (c *Call) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitCallExpr(c)
+}
+
+type Get struct {
+	Object Expression
+	Name   tokens.Token
+}
+
+func NewGet(object Expression, name tokens.Token) *Get {
+	return &Get{
+		Object: object,
+		Name:   name,
+	}
+}
+
+func (g *Get) Accept(visitor ExprVisitor[any]) any {
+	return visitor.VisitGetExpr(g)
+}
+
+type Set struct {
+	Object Expression
+	Name   tokens.Token
+	Value  Expression
+}
+
+func NewSet(object Expression, name tokens.Token, value Expression) *Set {
+	return &Set{
+		Object: object,
+		Name:   name,
+		Value:  value,
+	}
+}
+
+func (s *Set) Accept(visitor ExprVisitor[any]) any {
+	return visitor.VisitSetExpr(s)
+}
+
+type This struct {
+	Keyword tokens.Token
+}
+
+func NewThis(keyword tokens.Token) *This {
+	return &This{
+		Keyword: keyword,
+	}
+}
+
+func (t *This) Accept(visitor ExprVisitor[any]) any {
+	return visitor.VisitThisExpr(t)
 }
 
 type AnonymousFunction struct {

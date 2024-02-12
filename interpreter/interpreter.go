@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+type ReturnValue struct {
+	Value any
+}
+
 type Interpreter struct {
 	errorLogger          interfaces.ErrorLogger
 	environment          *env.Environment
@@ -95,7 +99,7 @@ func (i *Interpreter) evaluate(expr stm.Expression) any {
 
 func (i *Interpreter) VisitFunctionStatement(stmt *stm.FunctionStm) any {
 	index, ok := i.locals[stmt.Name]
-	function := NewLoxFunction(*stmt, i.environment)
+	function := NewLoxFunction(*stmt, i.environment, false)
 
 	if ok {
 		i.LocalVariables[index] = function
@@ -113,12 +117,44 @@ func (i *Interpreter) VisitReturnStatement(stmt *stm.ReturnStmt) any {
 		value = i.evaluate(stmt.Value)
 	}
 
-	panic(value)
+	panic(ReturnValue{Value: value})
 }
 
 func (i *Interpreter) VisitBlockStatement(stmt *stm.BlockStmt) any {
 	i.executeBlock(stmt.Statements, env.NewEnvironment(i.environment))
 	return nil
+}
+
+func (i *Interpreter) VisitClassStatement(stmt *stm.ClassStmt) any {
+	index, ok := i.locals[stmt.Name]
+
+	if !ok {
+		i.globals.Define(stmt.Name.Lexeme, nil)
+	}
+
+	methods := make(map[string]*LoxFunction)
+	staticMethods := make(map[string]*LoxFunction)
+
+	for _, method := range stmt.Methods {
+		function := NewLoxFunction(*method, i.globals, method.Name.Lexeme == "init")
+		methods[method.Name.Lexeme] = function
+	}
+
+	for _, method := range stmt.StaticMethods {
+		function := NewLoxFunction(*method, i.globals, method.Name.Lexeme == "init")
+		staticMethods[method.Name.Lexeme] = function
+	}
+
+	class := NewLoxClass(stmt.Name.Lexeme, methods, staticMethods)
+
+	if ok {
+		i.LocalVariables[index] = class
+	} else {
+		i.globals.Assign(stmt.Name, class)
+	}
+
+	return nil
+
 }
 
 // VisitExprStatement implements stm.Visitor.
@@ -336,6 +372,44 @@ func (i *Interpreter) VisitCallExpr(expr *stm.Call) any {
 
 	return function.Call(i, arguments)
 
+}
+
+func (i *Interpreter) VisitGetExpr(expr *stm.Get) any {
+	object := i.evaluate(expr.Object)
+
+	instance, ok := object.(IloxInstance)
+
+	if !ok {
+		panic("Only instances have properties.")
+	}
+
+	property, err := instance.Get(expr.Name, i)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return property
+
+}
+
+func (i *Interpreter) VisitSetExpr(expr *stm.Set) any {
+	object := i.evaluate(expr.Object)
+	instance, ok := object.(*LoxInstance)
+
+	if !ok {
+		panic("Only instances have fields.")
+	}
+
+	value := i.evaluate(expr.Value)
+
+	instance.Set(expr.Name, value)
+
+	return value
+}
+
+func (i *Interpreter) VisitThisExpr(expr *stm.This) any {
+	return i.lookupVariable(expr.Keyword, expr)
 }
 
 func (i *Interpreter) VisitAssignExpr(expr *stm.Assign) any {

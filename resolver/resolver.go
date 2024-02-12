@@ -8,11 +8,20 @@ import (
 )
 
 type FunctionType int
+type ClassType int
 
 const (
 	NONE FunctionType = iota
 	FUNCTION
 	ANONYMOUS_FUNCTION
+	INITIALIZER
+	METHOD
+	STATIC_METHOD
+)
+
+const (
+	NONE_CLASS ClassType = iota
+	CLASS
 )
 
 type LocalVariable struct {
@@ -25,7 +34,9 @@ type Resolver struct {
 	Scopes          []map[string]*LocalVariable
 	ErrorLogger     interfaces.ErrorLogger
 	currentFunction FunctionType
+	currentClass    ClassType
 	localIndex      int
+	thisIndex       int
 }
 
 func NewResolver(interpreter *interpreter.Interpreter, errorLogger interfaces.ErrorLogger) *Resolver {
@@ -33,7 +44,9 @@ func NewResolver(interpreter *interpreter.Interpreter, errorLogger interfaces.Er
 		Interpreter:     interpreter,
 		ErrorLogger:     errorLogger,
 		currentFunction: NONE,
+		currentClass:    NONE_CLASS,
 		localIndex:      0,
+		thisIndex:       -1,
 	}
 }
 
@@ -74,6 +87,10 @@ func (r *Resolver) resolveFunction(function *stm.FunctionStm, funcType FunctionT
 		r.define(token)
 		r.Interpreter.Resolve(token, 0, r.localIndex-1)
 		r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
+	}
+
+	if funcType == METHOD || funcType == INITIALIZER {
+		function.ThisIndex = r.thisIndex
 	}
 
 	r.ResolveBlock(function.Body)
@@ -170,6 +187,27 @@ func (r *Resolver) VisitCallExpr(expr *stm.Call) any {
 		r.resolveExpr(arg)
 	}
 
+	return nil
+}
+
+func (r *Resolver) VisitGetExpr(expr *stm.Get) any {
+	r.resolveExpr(expr.Object)
+	return nil
+}
+
+func (r *Resolver) VisitSetExpr(expr *stm.Set) any {
+	r.resolveExpr(expr.Object)
+	r.resolveExpr(expr.Value)
+	return nil
+}
+
+func (r *Resolver) VisitThisExpr(expr *stm.This) any {
+	if r.currentClass == NONE_CLASS || r.currentFunction == STATIC_METHOD {
+		r.ErrorLogger.ErrorForToken(expr.Keyword, "Can't use 'this' outside of a class or in static method.")
+		return nil
+	}
+
+	r.resolveLocal(expr, expr.Keyword)
 	return nil
 }
 
@@ -288,6 +326,11 @@ func (r *Resolver) VisitReturnStatement(stmt *stm.ReturnStmt) any {
 	}
 
 	if stmt.Value != nil {
+
+		if r.currentFunction == INITIALIZER {
+			r.ErrorLogger.ErrorForToken(stmt.Keyword, "Can't return a value from an initializer.")
+		}
+
 		r.resolveExpr(stmt.Value)
 	}
 
@@ -315,6 +358,45 @@ func (r *Resolver) VisitVarStatement(stmt *stm.VarStmt) any {
 func (r *Resolver) VisitWhileStatement(stmt *stm.WhileStmt) any {
 	r.resolveExpr(stmt.Condition)
 	r.resolveStm(stmt.Body)
+
+	return nil
+}
+
+func (r *Resolver) VisitClassStatement(stmt *stm.ClassStmt) any {
+	enclosingClass := r.currentClass
+	r.currentClass = CLASS
+
+	r.declare(stmt.Name)
+	r.define(stmt.Name)
+
+	r.beginScope()
+
+	scope := r.Scopes[len(r.Scopes)-1]
+	scope["this"] = &LocalVariable{
+		index:   r.localIndex,
+		defined: true,
+	}
+
+	r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
+
+	r.thisIndex = r.localIndex
+	r.localIndex++
+
+	for _, method := range stmt.Methods {
+		functionType := METHOD
+
+		if method.Name.Lexeme == "init" {
+			functionType = INITIALIZER
+		}
+		r.resolveFunction(method, functionType)
+	}
+
+	for _, method := range stmt.StaticMethods {
+		r.resolveFunction(method, STATIC_METHOD)
+	}
+
+	r.endScope()
+	r.currentClass = enclosingClass
 
 	return nil
 }

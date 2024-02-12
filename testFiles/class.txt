@@ -1,0 +1,32 @@
+class Foo {
+  init(n) {
+    this.number = n;
+  }
+
+  sayNumber() {
+    return this.number;
+  }
+}
+
+class Circle {
+
+    init(r) {
+      this.radius = r;
+      this.foo = Foo(r);
+    }
+
+    area() {
+      return 3.141592653 * this.radius * this.radius;
+    } 
+
+    class square(n) {
+      return n*n;
+    }
+}
+    
+
+var c1 = Circle(1);
+var c2 = Circle(2);
+var c3 = Circle(3);
+
+print c1.radius + c2.radius + c3.radius;

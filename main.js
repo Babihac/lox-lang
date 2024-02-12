@@ -1,13 +1,11 @@
 if (true) {
-  [1].forEach((val) => {
-    function fun() {
-      console.log(444);
+  class foo {
+    hoo() {
+      console.log(x);
     }
-  });
-}
+  }
 
-function fun() {
-  console.log(44334);
-}
+  const a = new foo();
 
-fun();
+  a.hoo();
+}

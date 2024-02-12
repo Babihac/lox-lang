@@ -15,6 +15,7 @@ type StmVisitor[T any] interface {
 	VisitBreakStatement(stmt *BreakStmt) T
 	VisitFunctionStatement(stmt *FunctionStm) T
 	VisitReturnStatement(stmt *ReturnStmt) T
+	VisitClassStatement(stmt *ClassStmt) T
 }
 
 type Statement interface {
@@ -127,16 +128,18 @@ func (b *BreakStmt) Accept(visitor StmVisitor[any]) any {
 }
 
 type FunctionStm struct {
-	Name   tokens.Token
-	Params []tokens.Token
-	Body   []Statement
+	Name      tokens.Token
+	Params    []tokens.Token
+	Body      []Statement
+	ThisIndex int
 }
 
 func NewFunction(name tokens.Token, params []tokens.Token, body []Statement) *FunctionStm {
 	return &FunctionStm{
-		Name:   name,
-		Params: params,
-		Body:   body,
+		Name:      name,
+		Params:    params,
+		Body:      body,
+		ThisIndex: -1,
 	}
 }
 
@@ -175,17 +178,19 @@ func (r *ReturnStmt) Accept(visitor StmVisitor[any]) any {
 }
 
 type ClassStmt struct {
-	Name    tokens.Token
-	Methods []FunctionStm
+	Name          tokens.Token
+	Methods       []*FunctionStm
+	StaticMethods []*FunctionStm
 }
 
-func NewClass(name tokens.Token, methods []FunctionStm) *ClassStmt {
+func NewClass(name tokens.Token, methods []*FunctionStm, staticMethods []*FunctionStm) *ClassStmt {
 	return &ClassStmt{
-		Name:    name,
-		Methods: methods,
+		Name:          name,
+		Methods:       methods,
+		StaticMethods: staticMethods,
 	}
 }
 
-func (c ClassStmt) Accept(visitor StmVisitor[any]) any {
-	return nil
+func (c *ClassStmt) Accept(visitor StmVisitor[any]) any {
+	return visitor.VisitClassStatement(c)
 }

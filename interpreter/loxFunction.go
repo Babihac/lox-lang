@@ -6,21 +6,50 @@ import (
 )
 
 type LoxFunction struct {
-	Declaration stm.FunctionStm
-	Closure     *env.Environment
+	Declaration   stm.FunctionStm
+	Closure       *env.Environment
+	isInitializer bool
 }
 
-func NewLoxFunction(declaration stm.FunctionStm, closure *env.Environment) *LoxFunction {
+func NewLoxFunction(declaration stm.FunctionStm, closure *env.Environment, isInitialzier bool) *LoxFunction {
 	return &LoxFunction{
-		Declaration: declaration,
-		Closure:     closure,
+		Declaration:   declaration,
+		Closure:       closure,
+		isInitializer: isInitialzier,
 	}
 }
 
-func (l LoxFunction) Call(interpreter *Interpreter, args []any) (result any) {
+func (l *LoxFunction) Bind(instance *LoxInstance, interpreter *Interpreter) {
+	thisIndex := l.Declaration.ThisIndex
+
+	if thisIndex != -1 {
+		interpreter.LocalVariables[thisIndex] = instance
+	}
+}
+
+func (l *LoxFunction) Call(interpreter *Interpreter, args []any) (result any) {
 
 	defer func() {
-		result = recover()
+		value := recover()
+		thisIndex := l.Declaration.ThisIndex
+
+		if l.isInitializer {
+			result = interpreter.LocalVariables[thisIndex]
+		}
+
+		if value != nil {
+
+			returnValue, ok := value.(ReturnValue)
+
+			if !ok {
+				panic(value)
+			}
+
+			if !l.isInitializer {
+				result = returnValue.Value
+			}
+		}
+
 	}()
 
 	environment := env.NewEnvironment(l.Closure)
@@ -35,10 +64,10 @@ func (l LoxFunction) Call(interpreter *Interpreter, args []any) (result any) {
 	return
 }
 
-func (l LoxFunction) Arity() int {
+func (l *LoxFunction) Arity() int {
 	return len(l.Declaration.Params)
 }
 
-func (l LoxFunction) String() string {
+func (l *LoxFunction) String() string {
 	return "<fn " + l.Declaration.Name.Lexeme + ">"
 }

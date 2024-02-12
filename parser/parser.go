@@ -119,6 +119,10 @@ func (p *Parser) statement() stm.Statement {
 		return p.functionStatement("function")
 	}
 
+	if p.match(tokens.CLASS) {
+		return p.classStatement()
+	}
+
 	if p.match(tokens.RETURN) {
 		return p.returnStatement()
 	}
@@ -173,6 +177,51 @@ func (p *Parser) forStatement() stm.Statement {
 
 }
 
+func (p *Parser) classStatement() stm.Statement {
+	name, err := p.consume(tokens.IDENTIFIER, "Expect class name.")
+
+	if err != nil {
+		return stm.NewError("Expect class name.")
+	}
+
+	p.consume(tokens.LEFT_BRACE, "Expect '{' before class body.")
+
+	methods := make([]*stm.FunctionStm, 0)
+	staticMethods := make([]*stm.FunctionStm, 0)
+
+	for {
+		if p.check(tokens.RIGHT_BRACE) || p.isAtEnd() {
+			break
+		}
+
+		if p.match(tokens.CLASS) {
+			function := p.functionStatement("static method")
+			s, ok := function.(*stm.FunctionStm)
+
+			if !ok {
+				return &stm.ErrorStmt{}
+			}
+
+			staticMethods = append(staticMethods, s)
+
+		} else {
+			function := p.functionStatement("method")
+			s, ok := function.(*stm.FunctionStm)
+
+			if !ok {
+				return &stm.ErrorStmt{}
+			}
+
+			methods = append(methods, s)
+		}
+	}
+
+	p.consume(tokens.RIGHT_BRACE, "Expect '}' after class body.")
+
+	return stm.NewClass(*name, methods, staticMethods)
+
+}
+
 func (p *Parser) whileStatement() *stm.WhileStmt {
 	p.consume(tokens.LEFT_PAREN, "Expect '(' after 'while'.")
 	condition := p.expression()
@@ -211,7 +260,11 @@ func (p *Parser) functionStatement(kind string) stm.Statement {
 		return stm.NewError("error creating function statement")
 	}
 
-	functionComponents := p.parseFunctionComponents(kind)
+	functionComponents, err := p.parseFunctionComponents(kind)
+
+	if err != nil {
+		return &stm.ErrorStmt{}
+	}
 
 	return stm.NewFunction(*name, functionComponents.parameters, functionComponents.body)
 }
@@ -274,6 +327,8 @@ func (p *Parser) assignemt() stm.Expression {
 			name := v.Name
 
 			return stm.NewAssign(name, value)
+		} else if get, ok := expr.(*stm.Get); ok {
+			return stm.NewSet(get.Object, get.Name, value)
 		}
 		p.errorLogger.ErrorForToken(equals, "Invalid assignment target.")
 	}
@@ -415,6 +470,14 @@ func (p *Parser) call() stm.Expression {
 	for {
 		if p.match(tokens.LEFT_PAREN) {
 			expr = p.finishCall(expr)
+		} else if p.match(tokens.DOT) {
+			name, err := p.consume(tokens.IDENTIFIER, "Expect property name after '.'.")
+
+			if err != nil {
+				return stm.NewErrorExpr("error")
+			}
+
+			expr = stm.NewGet(expr, *name)
 		} else {
 			break
 		}
@@ -428,7 +491,11 @@ func (p *Parser) anonymousFunction() stm.Expression {
 
 	if p.match(tokens.FUN) {
 
-		functionComponents := p.parseFunctionComponents("anonymous function")
+		functionComponents, err := p.parseFunctionComponents("anonymous function")
+
+		if err != nil {
+			return stm.NewErrorExpr("error building function")
+		}
 
 		return stm.NewAnonymousFunction(functionComponents.parameters, functionComponents.body)
 	}
@@ -477,6 +544,10 @@ func (p *Parser) primary() stm.Expression {
 
 	if p.match(tokens.NUMBER, tokens.STRING) {
 		return stm.NewLiteral(p.previous().Literal)
+	}
+
+	if p.match(tokens.THIS) {
+		return stm.NewThis(p.previous())
 	}
 
 	if p.match(tokens.IDENTIFIER) {
@@ -560,7 +631,7 @@ func (p *Parser) synchronize() {
 	}
 }
 
-func (p *Parser) parseFunctionComponents(kind string) *FunctionComponents {
+func (p *Parser) parseFunctionComponents(kind string) (*FunctionComponents, error) {
 	parameters := make([]tokens.Token, 0)
 	p.consume(tokens.LEFT_PAREN, fmt.Sprintf("Expect ( after %s name \n", kind))
 
@@ -569,7 +640,7 @@ func (p *Parser) parseFunctionComponents(kind string) *FunctionComponents {
 			param, err := p.consume(tokens.IDENTIFIER, "Expect parameter name.\n")
 
 			if err != nil {
-				return nil
+				return nil, errors.New("error building function")
 			}
 
 			parameters = append(parameters, *param)
@@ -587,5 +658,5 @@ func (p *Parser) parseFunctionComponents(kind string) *FunctionComponents {
 	p.consume(tokens.LEFT_BRACE, fmt.Sprintf("Expect { before %s body\n", kind))
 	body := p.block()
 
-	return NewFunctionComponents(parameters, body)
+	return NewFunctionComponents(parameters, body), nil
 }

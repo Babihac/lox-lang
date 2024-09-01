@@ -1,0 +1,24 @@
+
+  class Doughnut {
+    cook() {
+      print this.x;
+    }
+  }
+  class BostonCream < Doughnut {
+    init(n) {
+      this.x = n;
+    }
+
+    cook() {
+      print "from subclass";
+      super.cook();
+    }
+  }
+
+var cream = BostonCream(1);
+var cream2 = BostonCream(333);
+
+cream.cook();
+cream2.cook();
+cream.cook();
+cream2.cook();

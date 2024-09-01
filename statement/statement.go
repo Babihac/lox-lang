@@ -181,13 +181,17 @@ type ClassStmt struct {
 	Name          tokens.Token
 	Methods       []*FunctionStm
 	StaticMethods []*FunctionStm
+	SuperClass    *Variable
+	SuperIndex    int
 }
 
-func NewClass(name tokens.Token, methods []*FunctionStm, staticMethods []*FunctionStm) *ClassStmt {
+func NewClass(name tokens.Token, methods []*FunctionStm, staticMethods []*FunctionStm, superClass *Variable) *ClassStmt {
 	return &ClassStmt{
 		Name:          name,
 		Methods:       methods,
 		StaticMethods: staticMethods,
+		SuperClass:    superClass,
+		SuperIndex:    -1,
 	}
 }
 

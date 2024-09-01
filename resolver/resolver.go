@@ -22,6 +22,7 @@ const (
 const (
 	NONE_CLASS ClassType = iota
 	CLASS
+	SUBCLASS
 )
 
 type LocalVariable struct {
@@ -37,6 +38,7 @@ type Resolver struct {
 	currentClass    ClassType
 	localIndex      int
 	thisIndex       int
+	superIndex      int
 }
 
 func NewResolver(interpreter *interpreter.Interpreter, errorLogger interfaces.ErrorLogger) *Resolver {
@@ -47,6 +49,7 @@ func NewResolver(interpreter *interpreter.Interpreter, errorLogger interfaces.Er
 		currentClass:    NONE_CLASS,
 		localIndex:      0,
 		thisIndex:       -1,
+		superIndex:      -1,
 	}
 }
 
@@ -203,10 +206,22 @@ func (r *Resolver) VisitSetExpr(expr *stm.Set) any {
 
 func (r *Resolver) VisitThisExpr(expr *stm.This) any {
 	if r.currentClass == NONE_CLASS || r.currentFunction == STATIC_METHOD {
-		r.ErrorLogger.ErrorForToken(expr.Keyword, "Can't use 'this' outside of a class or in static method.")
+		r.ErrorLogger.ErrorForToken(expr.Keyword, "Can't use 'this' outside of a class or in static method.\n")
 		return nil
 	}
 
+	r.resolveLocal(expr, expr.Keyword)
+	return nil
+}
+
+func (r *Resolver) VisitSuperExpr(expr *stm.Super) any {
+	if r.currentClass == NONE_CLASS {
+		r.ErrorLogger.ErrorForToken(expr.Keyword, "Can't use 'super' outside of a class or in static method.\n")
+		return nil
+	} else if r.currentClass != SUBCLASS {
+		r.ErrorLogger.ErrorForToken(expr.Keyword, "Can't use 'super' in a class with no superclass.\n")
+	}
+	expr.ThisIndex = r.thisIndex
 	r.resolveLocal(expr, expr.Keyword)
 	return nil
 }
@@ -369,6 +384,29 @@ func (r *Resolver) VisitClassStatement(stmt *stm.ClassStmt) any {
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
 
+	if stmt.SuperClass != nil && stmt.Name.Lexeme == stmt.SuperClass.Name.Lexeme {
+		r.ErrorLogger.ErrorForToken(stmt.SuperClass.Name, "A class can't inherit from itself.")
+	}
+
+	if stmt.SuperClass != nil {
+		r.currentClass = SUBCLASS
+		r.resolveExpr(stmt.SuperClass)
+
+		r.beginScope()
+
+		scope := r.Scopes[len(r.Scopes)-1]
+		scope["super"] = &LocalVariable{
+			index:   r.localIndex,
+			defined: true,
+		}
+
+		r.Interpreter.LocalVariables = append(r.Interpreter.LocalVariables, nil)
+		r.superIndex = r.localIndex
+		stmt.SuperIndex = r.localIndex
+		r.localIndex++
+
+	}
+
 	r.beginScope()
 
 	scope := r.Scopes[len(r.Scopes)-1]
@@ -396,6 +434,11 @@ func (r *Resolver) VisitClassStatement(stmt *stm.ClassStmt) any {
 	}
 
 	r.endScope()
+
+	if stmt.SuperClass != nil {
+		r.endScope()
+	}
+
 	r.currentClass = enclosingClass
 
 	return nil

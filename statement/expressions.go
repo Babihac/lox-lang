@@ -18,6 +18,7 @@ type ExprVisitor[T any] interface {
 	VisitGetExpr(expr *Get) T
 	VisitSetExpr(expr *Set) T
 	VisitThisExpr(expr *This) T
+	VisitSuperExpr(expr *Super) T
 	VisitAnonymousFuncExpr(expr *AnonymousFunction) T
 }
 
@@ -231,6 +232,24 @@ func NewThis(keyword tokens.Token) *This {
 
 func (t *This) Accept(visitor ExprVisitor[any]) any {
 	return visitor.VisitThisExpr(t)
+}
+
+type Super struct {
+	Keyword   tokens.Token
+	Method    tokens.Token
+	ThisIndex int
+}
+
+func NewSuper(keyword tokens.Token, method tokens.Token) *Super {
+	return &Super{
+		Keyword:   keyword,
+		Method:    method,
+		ThisIndex: -1,
+	}
+}
+
+func (s *Super) Accept(visitor ExprVisitor[any]) any {
+	return visitor.VisitSuperExpr(s)
 }
 
 type AnonymousFunction struct {

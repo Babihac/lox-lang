@@ -126,6 +126,21 @@ func (i *Interpreter) VisitBlockStatement(stmt *stm.BlockStmt) any {
 }
 
 func (i *Interpreter) VisitClassStatement(stmt *stm.ClassStmt) any {
+
+	var superClass *LoxClass = nil
+
+	if stmt.SuperClass != nil {
+		value := i.evaluate(stmt.SuperClass)
+
+		if _, ok := value.(*LoxClass); !ok {
+			panic("Superclass must be a class.")
+		}
+
+		superClass = value.(*LoxClass)
+
+		i.LocalVariables[stmt.SuperIndex] = superClass
+	}
+
 	index, ok := i.locals[stmt.Name]
 
 	if !ok {
@@ -145,7 +160,7 @@ func (i *Interpreter) VisitClassStatement(stmt *stm.ClassStmt) any {
 		staticMethods[method.Name.Lexeme] = function
 	}
 
-	class := NewLoxClass(stmt.Name.Lexeme, methods, staticMethods)
+	class := NewLoxClass(stmt.Name.Lexeme, methods, staticMethods, superClass)
 
 	if ok {
 		i.LocalVariables[index] = class
@@ -410,6 +425,20 @@ func (i *Interpreter) VisitSetExpr(expr *stm.Set) any {
 
 func (i *Interpreter) VisitThisExpr(expr *stm.This) any {
 	return i.lookupVariable(expr.Keyword, expr)
+}
+
+func (i *Interpreter) VisitSuperExpr(expr *stm.Super) any {
+	class := i.lookupVariable(expr.Keyword, expr).(*LoxClass)
+
+	method, ok := class.FindMethod(expr.Method.Lexeme)
+
+	if ok {
+		this := i.LocalVariables[expr.ThisIndex].(*LoxInstance)
+		method.Bind(this, i)
+		return method
+	}
+
+	panic("")
 }
 
 func (i *Interpreter) VisitAssignExpr(expr *stm.Assign) any {

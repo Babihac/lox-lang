@@ -10,14 +10,16 @@ type LoxClass struct {
 	Methods       map[string]*LoxFunction
 	StaticMethods map[string]*LoxFunction
 	Fields        map[string]any
+	SuperClass    *LoxClass
 }
 
-func NewLoxClass(name string, methods map[string]*LoxFunction, staticMethods map[string]*LoxFunction) *LoxClass {
+func NewLoxClass(name string, methods map[string]*LoxFunction, staticMethods map[string]*LoxFunction, superClass *LoxClass) *LoxClass {
 	return &LoxClass{
 		Name:          name,
 		Methods:       methods,
 		StaticMethods: staticMethods,
 		Fields:        make(map[string]any),
+		SuperClass:    superClass,
 	}
 }
 
@@ -45,11 +47,15 @@ func (l *LoxClass) Get(name tokens.Token, interpreter *Interpreter) (any, error)
 func (l *LoxClass) FindMethod(name string) (*LoxFunction, bool) {
 	method, ok := l.Methods[name]
 
-	if !ok {
-		return nil, false
+	if ok {
+		return method, true
 	}
 
-	return method, true
+	if l.SuperClass != nil {
+		return l.SuperClass.FindMethod(name)
+	}
+
+	return nil, false
 }
 
 func (l *LoxClass) Call(interpreter *Interpreter, args []any) any {

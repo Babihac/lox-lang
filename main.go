@@ -25,7 +25,7 @@ func main() {
 
 	lox.SetComponents(scanner, parses, interpreter, resolver)
 
-	lox.RunFile("testFiles/class.txt")
+	lox.RunFile("testFiles/inheritance.txt")
 
 	// expr := expressions.Binary{
 	// 	Left:     expressions.Binary{Operator: tokens.NewToken(tokens.PLUS, "+", nil, 1), Left: expressions.Literal{Value: 1}, Right: expressions.Literal{Value: 2}},

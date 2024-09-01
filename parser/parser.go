@@ -179,9 +179,15 @@ func (p *Parser) forStatement() stm.Statement {
 
 func (p *Parser) classStatement() stm.Statement {
 	name, err := p.consume(tokens.IDENTIFIER, "Expect class name.")
+	var superClass *stm.Variable = nil
 
 	if err != nil {
 		return stm.NewError("Expect class name.")
+	}
+
+	if p.match(tokens.LESS) {
+		p.consume(tokens.IDENTIFIER, "Expect superclass name.")
+		superClass = stm.NewVariable(p.previous())
 	}
 
 	p.consume(tokens.LEFT_BRACE, "Expect '{' before class body.")
@@ -218,7 +224,7 @@ func (p *Parser) classStatement() stm.Statement {
 
 	p.consume(tokens.RIGHT_BRACE, "Expect '}' after class body.")
 
-	return stm.NewClass(*name, methods, staticMethods)
+	return stm.NewClass(*name, methods, staticMethods, superClass)
 
 }
 
@@ -548,6 +554,19 @@ func (p *Parser) primary() stm.Expression {
 
 	if p.match(tokens.THIS) {
 		return stm.NewThis(p.previous())
+	}
+
+	if p.match(tokens.SUPER) {
+		keyword := p.previous()
+		p.consume(tokens.DOT, "Expect '.' after 'super'.")
+
+		method, err := p.consume(tokens.IDENTIFIER, "Expect superclass method name.")
+
+		if err != nil {
+			return stm.NewErrorExpr("Expect superclass method name.")
+		}
+
+		return stm.NewSuper(keyword, *method)
 	}
 
 	if p.match(tokens.IDENTIFIER) {
